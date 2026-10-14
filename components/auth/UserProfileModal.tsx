@@ -15,7 +15,7 @@ import {
   Mail,
 } from "lucide-react";
 import { UserAccount } from "../../lib/types/auth";
-import { AuthService, DEFAULT_USERS } from "../../lib/storage/authService";
+import { AuthService } from "../../lib/storage/authService";
 
 interface UserProfileModalProps {
   isOpen: boolean;

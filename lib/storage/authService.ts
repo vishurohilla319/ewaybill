@@ -7,47 +7,7 @@ const STORAGE_KEYS = {
   SESSION: "fintax_ewb_session",
 };
 
-export const DEFAULT_USERS: UserAccount[] = [
-  {
-    id: "usr-1",
-    userId: "vishu.rohilla",
-    fullName: "Vishu Rohilla",
-    email: "vishu@fintax.in",
-    password: "Password@123",
-    role: "Admin",
-    companyId: "comp-1",
-    companyName: "Fin Tax Solutions Pvt Ltd",
-    companyGstin: "07AAACF1234D1Z8",
-    createdAt: "14/10/2026",
-    avatarColor: "bg-indigo-600",
-  },
-  {
-    id: "usr-2",
-    userId: "accounts_admin",
-    fullName: "Finance & Accounts Head",
-    email: "accounts@fintax.in",
-    password: "Password@123",
-    role: "Accountant",
-    companyId: "comp-1",
-    companyName: "Fin Tax Solutions Pvt Ltd",
-    companyGstin: "07AAACF1234D1Z8",
-    createdAt: "14/10/2026",
-    avatarColor: "bg-emerald-600",
-  },
-  {
-    id: "usr-3",
-    userId: "taxpayer_mumbai",
-    fullName: "Rajesh Rohilla",
-    email: "rajesh@rohilla-industries.com",
-    password: "Password@123",
-    role: "Taxpayer",
-    companyId: "comp-2",
-    companyName: "Rohilla Logistics & Manufacturing Co.",
-    companyGstin: "27AABCR9988E1Z4",
-    createdAt: "14/10/2026",
-    avatarColor: "bg-purple-600",
-  },
-];
+export const DEFAULT_USERS: UserAccount[] = [];
 
 function safeGet<T>(key: string, defaultValue: T): T {
   if (typeof window === "undefined") return defaultValue;
@@ -71,7 +31,13 @@ function safeSet<T>(key: string, value: T): void {
 
 export const AuthService = {
   getUsers: (): UserAccount[] => {
-    return safeGet<UserAccount[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
+    const raw = safeGet<UserAccount[]>(STORAGE_KEYS.USERS, []);
+    const legacy = new Set(["vishu.rohilla", "accounts_admin", "taxpayer_mumbai"]);
+    const filtered = raw.filter((u) => !legacy.has(u.userId));
+    if (filtered.length !== raw.length) {
+      safeSet(STORAGE_KEYS.USERS, filtered);
+    }
+    return filtered;
   },
 
   saveUsers: (users: UserAccount[]): void => {
@@ -79,7 +45,17 @@ export const AuthService = {
   },
 
   getSession: (): AuthSession | null => {
-    return safeGet<AuthSession | null>(STORAGE_KEYS.SESSION, null);
+    const session = safeGet<AuthSession | null>(STORAGE_KEYS.SESSION, null);
+    if (
+      session &&
+      (session.user?.userId === "vishu.rohilla" ||
+        session.user?.userId === "accounts_admin" ||
+        session.user?.userId === "taxpayer_mumbai")
+    ) {
+      AuthService.setSession(null);
+      return null;
+    }
+    return session;
   },
 
   setSession: (session: AuthSession | null): void => {
@@ -162,22 +138,27 @@ export const AuthService = {
 
     // Auto-create company for new user
     const newCompId = `comp-${Date.now()}`;
+    const cleanGstin = payload.companyGstin ? payload.companyGstin.trim().toUpperCase() : "";
+    const cleanCompName = payload.companyName.trim() || `${payload.fullName}'s Business`;
     const newCompany: CompanyProfile = {
       id: newCompId,
-      legalName: payload.companyName.trim() || `${payload.fullName}'s Enterprise`,
-      tradeName: payload.companyName.trim() || `${payload.fullName}'s Enterprise`,
-      gstin: payload.companyGstin.trim().toUpperCase() || "07AAACF1234D1Z8",
-      address1: payload.address.trim() || "Corporate Head Office",
+      legalName: cleanCompName,
+      tradeName: cleanCompName,
+      gstin: cleanGstin,
+      address1: payload.address.trim() || "Main Road",
       place: payload.place.trim() || "New Delhi",
       pincode: payload.pincode.trim() || "110001",
-      stateCode: payload.stateCode || 7,
+      stateCode: payload.stateCode || (cleanGstin.length >= 2 ? parseInt(cleanGstin.substring(0, 2), 10) || 7 : 7),
       phone: "",
       email: payload.email.trim(),
-      isDefault: false,
+      isDefault: true,
     };
 
     const companies = StorageService.getCompanies();
-    StorageService.saveCompanies([...companies, newCompany]);
+    const cleanCompanies = companies.filter(
+      (c) => c.id !== "comp-1" && c.id !== "comp-2"
+    );
+    StorageService.saveCompanies([newCompany, ...cleanCompanies]);
     StorageService.setActiveCompanyId(newCompId);
 
     const colors = ["bg-indigo-600", "bg-emerald-600", "bg-purple-600", "bg-blue-600", "bg-teal-600"];

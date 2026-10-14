@@ -18,7 +18,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { AuthSession, RegisterPayload, UserRole } from "../../lib/types/auth";
-import { AuthService, DEFAULT_USERS } from "../../lib/storage/authService";
+import { AuthService } from "../../lib/storage/authService";
 import { STATE_CODES, STATE_OPTIONS } from "../../lib/constants/gstData";
 import { isValidGstin } from "../../lib/engine/validator";
 
@@ -27,7 +27,10 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const existingUsers = AuthService.getUsers();
+  const [activeTab, setActiveTab] = useState<"login" | "register">(
+    existingUsers.length === 0 ? "register" : "login"
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,10 +48,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     role: "Taxpayer",
     companyName: "",
     companyGstin: "",
-    stateCode: 7,
-    pincode: "110001",
+    stateCode: 9,
+    pincode: "",
     address: "",
-    place: "New Delhi",
+    place: "",
   });
 
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -75,35 +78,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       if (res.success && res.session) {
         onLoginSuccess(res.session);
       } else {
-        setErrorMessage(res.error || "Authentication failed.");
+        setErrorMessage(res.error || "Authentication failed. Please check your User ID and password.");
       }
     }, 200);
-  };
-
-  const handleQuickLogin = (userIndex: number) => {
-    const demoUser = DEFAULT_USERS[userIndex];
-    if (!demoUser) return;
-
-    setLoading(true);
-    setErrorMessage(null);
-    setTimeout(() => {
-      const res = AuthService.login({
-        userId: demoUser.userId,
-        password: demoUser.password,
-      });
-      setLoading(false);
-      if (res.success && res.session) {
-        onLoginSuccess(res.session);
-      }
-    }, 150);
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!registerData.userId.trim()) {
-      setErrorMessage("User ID is required.");
+    const cleanUserId = registerData.userId.trim().toLowerCase();
+    if (!cleanUserId) {
+      setErrorMessage("User ID is required. Please choose a User ID.");
+      return;
+    }
+    if (cleanUserId.length < 3) {
+      setErrorMessage("User ID must be at least 3 characters long.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9._-]+$/.test(cleanUserId)) {
+      setErrorMessage("User ID can only contain letters, numbers, periods, and hyphens.");
       return;
     }
     if (!registerData.fullName.trim()) {
@@ -122,19 +116,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (registerData.companyGstin) {
       const cleanGstin = registerData.companyGstin.trim().toUpperCase();
       if (!isValidGstin(cleanGstin) && cleanGstin !== "URP") {
-        setErrorMessage("Please enter a valid 15-character GSTIN or leave blank for default.");
+        setErrorMessage("Please enter a valid 15-character GSTIN (e.g. 09APHPN0801J1ZY).");
         return;
       }
     }
 
     setLoading(true);
     setTimeout(() => {
-      const res = AuthService.register(registerData);
+      const res = AuthService.register({
+        ...registerData,
+        userId: cleanUserId,
+      });
       setLoading(false);
       if (res.success && res.session) {
         onLoginSuccess(res.session);
       } else {
-        setErrorMessage(res.error || "Registration failed.");
+        setErrorMessage(res.error || "Registration failed. Please try a different User ID.");
       }
     }, 250);
   };
@@ -147,35 +144,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <ShieldCheck className="w-6 h-6" />
         </div>
         <h1 className="text-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-          Fin Tax <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">E-Way Bill</span>
+          E-Way Bill Generator
         </h1>
         <p className="text-[11px] text-slate-400 mt-0.5">
-          Indian GST Bulk JSON Generation & Accounting Software
+          Indian GST Bulk JSON Generation & Verification Portal
         </p>
-        <div className="text-[10px] text-indigo-300 font-medium">
-          Software Developed by <strong className="text-white">Vishu Rohilla</strong>
-        </div>
       </div>
 
       {/* Main Auth Card */}
       <div className="bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden flex-shrink-0 my-auto mb-6">
         {/* Navigation Tabs */}
         <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50 text-xs font-bold">
-          <button
-            onClick={() => {
-              setActiveTab("login");
-              setErrorMessage(null);
-            }}
-            className={`py-3 flex items-center justify-center gap-2 transition-all ${
-              activeTab === "login"
-                ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <LogIn className="w-4 h-4" />
-            <span>Sign In with User ID</span>
-          </button>
-
           <button
             onClick={() => {
               setActiveTab("register");
@@ -188,7 +167,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             }`}
           >
             <UserPlus className="w-4 h-4" />
-            <span>Create Account</span>
+            <span>Create User ID</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("login");
+              setErrorMessage(null);
+            }}
+            className={`py-3 flex items-center justify-center gap-2 transition-all ${
+              activeTab === "login"
+                ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <LogIn className="w-4 h-4" />
+            <span>Sign In</span>
           </button>
         </div>
 
@@ -205,10 +199,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {activeTab === "login" ? (
             /* --- LOGIN FORM --- */
             <div className="space-y-4">
+              <div className="text-center pb-2">
+                <h2 className="text-sm font-bold text-slate-800">
+                  Sign In with Your User ID
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Enter your registered User ID or email address to access your bills.
+                </p>
+              </div>
+
               <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    User ID or Registered Email <span className="text-rose-500">*</span>
+                    User ID or Email <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -216,7 +219,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       type="text"
                       value={userIdInput}
                       onChange={(e) => setUserIdInput(e.target.value)}
-                      placeholder="e.g. vishu.rohilla or accounts_admin"
+                      placeholder="Enter your User ID or Email"
                       className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 font-medium"
                     />
                   </div>
@@ -224,7 +227,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Account Password <span className="text-rose-500">*</span>
+                    Password <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -261,94 +264,61 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </button>
               </form>
 
-              {/* Quick 1-Click Demo Profiles */}
-              <div className="pt-3 border-t border-slate-100">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-                  <span>Fast 1-Click Demo Profiles</span>
-                  <span className="text-indigo-600 font-semibold">Click to login</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {DEFAULT_USERS.map((usr, i) => (
-                    <button
-                      key={usr.id}
-                      type="button"
-                      onClick={() => handleQuickLogin(i)}
-                      className="p-2 rounded-lg border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 text-left transition-all group flex flex-col justify-between"
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div className={`w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${usr.avatarColor || "bg-indigo-600"}`}>
-                          {usr.fullName.charAt(0)}
-                        </div>
-                        <span className="text-[11px] font-bold text-slate-800 group-hover:text-indigo-700 truncate">
-                          {usr.fullName.split(" ")[0]}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-500 font-mono truncate">
-                        ID: {usr.userId}
-                      </div>
-                      <div className="text-[9px] text-indigo-600 font-semibold mt-1">
-                        {usr.role} ➔
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              {/* Switch to Register link */}
+              <div className="pt-4 border-t border-slate-100 text-center">
+                <p className="text-xs text-slate-500 mb-2">
+                  Don't have a User ID yet?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("register");
+                    setErrorMessage(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-sm"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Create New User ID (Sign Up)</span>
+                </button>
               </div>
             </div>
           ) : (
-            /* --- REGISTRATION FORM --- */
-            <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
+            /* --- REGISTRATION FORM (CREATE USER ID) --- */
+            <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-xs">
+              <div className="text-center pb-1">
+                <h2 className="text-sm font-bold text-slate-800">
+                  Create Your User Account
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Set up your own User ID and business details.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    User ID (Username) <span className="text-rose-500">*</span>
+                    Choose User ID <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={registerData.userId}
                     onChange={(e) =>
-                      setRegisterData({ ...registerData, userId: e.target.value.toLowerCase() })
+                      setRegisterData({
+                        ...registerData,
+                        userId: e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""),
+                      })
                     }
-                    placeholder="e.g. vishu_accounts"
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500 font-mono"
+                    placeholder="e.g. nh_agencies or mohit"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono font-bold text-indigo-700 focus:outline-none focus:border-indigo-500"
                   />
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    Letters, numbers, dots, and hyphens (min 3 chars)
+                  </span>
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Full Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={registerData.fullName}
-                    onChange={(e) =>
-                      setRegisterData({ ...registerData, fullName: e.target.value })
-                    }
-                    placeholder="e.g. Vishu Rohilla"
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Corporate Email <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={registerData.email}
-                    onChange={(e) =>
-                      setRegisterData({ ...registerData, email: e.target.value })
-                    }
-                    placeholder="user@enterprise.com"
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Password <span className="text-rose-500">*</span>
+                    Set Password <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="password"
@@ -365,28 +335,54 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Role
+                    Your Full Name <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={registerData.role}
+                  <input
+                    type="text"
+                    value={registerData.fullName}
                     onChange={(e) =>
-                      setRegisterData({
-                        ...registerData,
-                        role: e.target.value as UserRole,
-                      })
+                      setRegisterData({ ...registerData, fullName: e.target.value })
                     }
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded bg-white focus:outline-none"
-                  >
-                    <option value="Admin">Administrator / CA</option>
-                    <option value="Taxpayer">Taxpayer / Business Owner</option>
-                    <option value="Accountant">Chief Accountant</option>
-                    <option value="Transporter">Transporter / Fleet</option>
-                  </select>
+                    placeholder="e.g. Mohit Jain"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
+                  />
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Registered GSTIN
+                    Email Address <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={registerData.email}
+                    onChange={(e) =>
+                      setRegisterData({ ...registerData, email: e.target.value })
+                    }
+                    placeholder="e.g. contact@domain.com"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Company / Firm Name
+                  </label>
+                  <input
+                    type="text"
+                    value={registerData.companyName}
+                    onChange={(e) =>
+                      setRegisterData({ ...registerData, companyName: e.target.value })
+                    }
+                    placeholder="e.g. N.H AGENCIES"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Registered GSTIN (15 Digits)
                   </label>
                   <input
                     type="text"
@@ -403,25 +399,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       }
                       setRegisterData({ ...registerData, ...update });
                     }}
-                    placeholder="15-digit GSTIN"
+                    placeholder="e.g. 09APHPN0801J1ZY"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono uppercase focus:outline-none focus:border-indigo-500"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Company / Entity Legal Name
-                </label>
-                <input
-                  type="text"
-                  value={registerData.companyName}
-                  onChange={(e) =>
-                    setRegisterData({ ...registerData, companyName: e.target.value })
-                  }
-                  placeholder="e.g. Rohilla Technologies Pvt Ltd"
-                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500 font-medium"
-                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -457,7 +438,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, place: e.target.value })
                     }
-                    placeholder="e.g. New Delhi"
+                    placeholder="e.g. Modinagar"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -473,7 +454,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, pincode: e.target.value })
                     }
-                    placeholder="6 digits"
+                    placeholder="e.g. 201204"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -489,17 +470,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4" />
-                    <span>Register Account & Enter Portal</span>
+                    <span>Create User ID & Enter Portal</span>
                   </>
                 )}
               </button>
+
+              {/* Switch to Login link */}
+              <div className="pt-3 border-t border-slate-100 text-center">
+                <p className="text-xs text-slate-500 mb-1.5">
+                  Already created a User ID?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("login");
+                    setErrorMessage(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 text-xs font-semibold transition-colors"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In with Existing User ID</span>
+                </button>
+              </div>
             </form>
           )}
         </div>
 
         {/* Card Footer */}
         <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-500">
-          Fin Tax E-Way Bill System • Production Ready • Safe Local Data Isolation
+          E-Way Bill Generation System • Secure Isolated Storage
         </div>
       </div>
     </div>

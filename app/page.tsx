@@ -19,7 +19,7 @@ import { SettingsView } from "../components/views/SettingsView";
 import { LoginPage } from "../components/auth/LoginPage";
 import { UserProfileModal } from "../components/auth/UserProfileModal";
 import { AuthSession, UserAccount } from "../lib/types/auth";
-import { AuthService, DEFAULT_USERS } from "../lib/storage/authService";
+import { AuthService } from "../lib/storage/authService";
 import {
   AppSettings,
   CompanyProfile,
@@ -97,20 +97,8 @@ export default function Home() {
     const loadedHistory = StorageService.getHistory();
     const loadedSettings = StorageService.getSettings();
 
-    // Load auth session or auto-initialize with default admin session if first visit
-    let currentSession = AuthService.getSession();
-    if (!currentSession) {
-      // Auto-start with default session so the user gets straight to work,
-      // or they can switch user anytime using User ID & Password
-      const defaultUser = DEFAULT_USERS[0]; // Vishu Rohilla
-      currentSession = {
-        user: defaultUser,
-        token: `fintax_tok_${Date.now()}`,
-        loginTime: new Date().toLocaleString("en-IN"),
-      };
-      AuthService.setSession(currentSession);
-    }
-
+    // Load auth session
+    const currentSession = AuthService.getSession();
     setSession(currentSession);
     setCompanies(loadedCompanies);
     setActiveCompanyId(loadedActiveId);
@@ -140,10 +128,14 @@ export default function Home() {
   // Auth Handlers
   const handleLoginSuccess = (newSession: AuthSession) => {
     setSession(newSession);
-    const userCompany = companies.find((c) => c.id === newSession.user.companyId);
-    if (userCompany) {
-      setActiveCompanyId(userCompany.id);
-      StorageService.setActiveCompanyId(userCompany.id);
+    const reloadedCompanies = StorageService.getCompanies();
+    setCompanies(reloadedCompanies);
+    if (newSession.user.companyId) {
+      setActiveCompanyId(newSession.user.companyId);
+      StorageService.setActiveCompanyId(newSession.user.companyId);
+    } else {
+      const activeId = StorageService.getActiveCompanyId();
+      setActiveCompanyId(activeId);
     }
   };
 
