@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { EWayBillDocument, EWayBillItem } from "../types/ewayBill";
+import { CompanyProfile, EWayBillDocument, EWayBillItem } from "../types/ewayBill";
 import { recalculateBill } from "./calculator";
 import { validateEWayBill } from "./validator";
 
@@ -201,304 +201,748 @@ export function generateExcelTemplate(): Uint8Array {
   return new Uint8Array(wbout);
 }
 
-export function parseExcelFile(
-  data: ArrayBuffer,
-  defaultUserGstin?: string
-): ParsedExcelResult {
-  const wb = XLSX.read(data, { type: "array" });
-  const sheetName = wb.SheetNames[0];
-  const ws = wb.Sheets[sheetName];
-  const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, {
-    defval: "",
+function parseFormattedDate(val: any): string {
+  if (!val) return "";
+  const str = String(val).trim();
+  if (
+    typeof val === "number" ||
+    (!str.includes("/") && !str.includes("-") && !isNaN(Number(str)))
+  ) {
+    const num = Math.floor(Number(str));
+    if (num > 1000) {
+      const parsed = XLSX.SSF.parse_date_code(num);
+      if (parsed) {
+        return `${String(parsed.d).padStart(2, "0")}/${String(
+          parsed.m
+        ).padStart(2, "0")}/${parsed.y}`;
+      }
+    }
+  }
+
+  // DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // DD-MM-YYYY
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    return str.replace(/-/g, "/");
+  }
+
+  // YYYY-MM-DD
+  const ymdMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (ymdMatch) {
+    return `${String(ymdMatch[3]).padStart(2, "0")}/${String(
+      ymdMatch[2]
+    ).padStart(2, "0")}/${ymdMatch[1]}`;
+  }
+
+  // DD-Mon-YY or DD-Mon-YYYY (e.g. 14-Oct-26 or 14-Oct-2026)
+  const dMonY = str.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{2,4})$/);
+  if (dMonY) {
+    const day = parseInt(dMonY[1], 10);
+    const monStr = dMonY[2].toLowerCase();
+    const months: Record<string, number> = {
+      jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+      jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+    };
+    const m = months[monStr.substring(0, 3)] || 1;
+    let y = parseInt(dMonY[3], 10);
+    if (y < 100) y += 2000;
+    return `${String(day).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+  }
+
+  return str;
+}
+
+export function isTallyInvoiceSheet(grid: any[][]): boolean {
+  if (!grid || grid.length < 5) return false;
+  let text = "";
+  for (let r = 0; r < Math.min(grid.length, 25); r++) {
+    text += " " + grid[r].map((c) => String(c || "")).join(" ").toLowerCase();
+  }
+  const hasInvoiceNo = text.includes("invoice no");
+  const hasBuyerOrConsignee =
+    text.includes("buyer") || text.includes("consignee");
+  const hasTaxInvoice = text.includes("tax invoice");
+  const hasDescription =
+    text.includes("description of") || text.includes("goods and services");
+
+  return (
+    (hasInvoiceNo || hasTaxInvoice) && (hasBuyerOrConsignee || hasDescription)
+  );
+}
+
+export function parseTallyInvoiceGrid(
+  grid: any[][],
+  defaultUserGstin?: string,
+  defaultFromPin?: number
+): EWayBillDocument | null {
+  let docNo = "";
+  let docDate = "";
+  let fromTrdName = "";
+  let fromAddr1 = "";
+  let fromAddr2 = "";
+  let fromPlace = "";
+  let fromGstin = "";
+  let fromStateCode = 0;
+  let fromPincode = defaultFromPin || 0;
+
+  let toTrdName = "";
+  let toAddr1 = "";
+  let toAddr2 = "";
+  let toPlace = "";
+  let toGstin = "";
+  let toStateCode = 0;
+  let toPincode = 0;
+
+  // Scan first 25 rows for document metadata & header fields
+  for (let r = 0; r < Math.min(grid.length, 25); r++) {
+    const row = grid[r];
+    for (let c = 0; c < row.length; c++) {
+      const cell = String(row[c] || "").trim();
+
+      if (/^invoice\s*no\.?$/i.test(cell)) {
+        if (r + 1 < grid.length && grid[r + 1][c]) {
+          docNo = String(grid[r + 1][c]).trim();
+        } else if (c + 1 < row.length && row[c + 1]) {
+          docNo = String(row[c + 1]).trim();
+        }
+      }
+
+      if (/^dated$/i.test(cell)) {
+        if (r + 1 < grid.length && grid[r + 1][c]) {
+          docDate = parseFormattedDate(grid[r + 1][c]);
+        } else if (c + 1 < row.length && row[c + 1]) {
+          docDate = parseFormattedDate(row[c + 1]);
+        }
+      }
+
+      if (/gstin/i.test(cell) && r < 10) {
+        const match = cell.match(
+          /([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})/i
+        );
+        if (match && !fromGstin) {
+          fromGstin = match[1].toUpperCase();
+          if (!fromStateCode)
+            fromStateCode = parseInt(fromGstin.substring(0, 2), 10);
+        }
+      }
+
+      if (/state\s*name/i.test(cell) && r < 10) {
+        const match = cell.match(/code\s*:\s*(\d+)/i);
+        if (match && !fromStateCode) fromStateCode = parseInt(match[1], 10);
+      }
+    }
+  }
+
+  // Seller Details in column 0 of rows 2-6
+  const sellerLines: string[] = [];
+  for (let r = 2; r <= 6; r++) {
+    if (grid[r] && grid[r][0]) {
+      const val = String(grid[r][0]).trim();
+      if (
+        !val.toLowerCase().startsWith("gstin") &&
+        !val.toLowerCase().startsWith("state") &&
+        !val.toLowerCase().startsWith("contact")
+      ) {
+        sellerLines.push(val);
+      }
+    }
+  }
+  if (sellerLines.length > 0) {
+    fromTrdName = sellerLines[0];
+    fromAddr1 = sellerLines[1] || "";
+    fromAddr2 = sellerLines[2] || "";
+    fromPlace = sellerLines[3] || sellerLines[2] || sellerLines[1] || "";
+  }
+
+  sellerLines.forEach((line) => {
+    const pinMatch = line.match(/\b(\d{6})\b/);
+    if (pinMatch && !fromPincode) {
+      fromPincode = parseInt(pinMatch[1], 10);
+    }
   });
 
+  // Buyer / Consignee blocks
+  for (let r = 7; r < Math.min(grid.length, 22); r++) {
+    const row = grid[r];
+    const cell0 = String(row[0] || "").trim();
+
+    if (/^consignee|^buyer/i.test(cell0)) {
+      for (let subR = r + 1; subR < Math.min(r + 8, grid.length); subR++) {
+        const subRow = grid[subR];
+        const val0 = String(subRow[0] || "").trim();
+        const fullRowStr = subRow
+          .map((x) => String(x || "").trim())
+          .join(" ");
+
+        if (
+          !toTrdName &&
+          val0 &&
+          !val0.toLowerCase().startsWith("gstin") &&
+          !val0.toLowerCase().startsWith("state")
+        ) {
+          toTrdName = val0;
+          continue;
+        }
+
+        if (
+          toTrdName &&
+          !toAddr1 &&
+          val0 &&
+          !val0.toLowerCase().startsWith("gstin") &&
+          !val0.toLowerCase().startsWith("state")
+        ) {
+          toAddr1 = val0;
+          const pinMatch = val0.match(/\b(\d{6})\b/);
+          if (pinMatch) toPincode = parseInt(pinMatch[1], 10);
+          const parts = val0.split(",").map((s) => s.trim()).filter(Boolean);
+          if (parts.length >= 3) {
+            toPlace = parts[parts.length - 3] || parts[parts.length - 2];
+          } else if (parts.length >= 2) {
+            toPlace = parts[parts.length - 2];
+          }
+          continue;
+        }
+
+        const gstinMatch = fullRowStr.match(
+          /([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})/i
+        );
+        if (gstinMatch && !toGstin) {
+          toGstin = gstinMatch[1].toUpperCase();
+          if (!toStateCode) toStateCode = parseInt(toGstin.substring(0, 2), 10);
+        }
+
+        const stateMatch = fullRowStr.match(/code\s*:\s*(\d+)/i);
+        if (stateMatch && !toStateCode) {
+          toStateCode = parseInt(stateMatch[1], 10);
+        }
+      }
+    }
+  }
+
+  // Fallback for supplier PIN if omitted in printed header
+  if (!fromPincode) {
+    if (fromPlace.toLowerCase().includes("saharanpur")) fromPincode = 247001;
+    else if (fromStateCode === 9) fromPincode = 201301;
+    else fromPincode = 110001;
+  }
+
+  // Extract HSN tax rates summary
+  const hsnRates = new Map<string, number>();
+  for (let r = 25; r < grid.length; r++) {
+    const row = grid[r];
+    const val0 = String(row[0] || "").trim();
+    if (/^\d{4,8}$/.test(val0)) {
+      for (let c = 1; c < row.length; c++) {
+        const cVal = String(row[c] || "").trim();
+        if (cVal.endsWith("%")) {
+          const rateNum = parseFloat(cVal);
+          if (!isNaN(rateNum)) hsnRates.set(val0, rateNum);
+        } else if (Number(cVal) > 0 && Number(cVal) < 1) {
+          hsnRates.set(val0, Math.round(Number(cVal) * 100));
+        }
+      }
+    }
+  }
+
+  // Find line items table header
+  let itemHeaderRow = -1;
+  let hsnCol = -1;
+  let descCol = -1;
+  let qtyCol = -1;
+  let unitCol = -1;
+  let amountCol = -1;
+
+  for (let r = 15; r < 25; r++) {
+    const row = grid[r];
+    for (let c = 0; c < row.length; c++) {
+      const cell = String(row[c] || "").trim().toLowerCase();
+      if (cell.includes("description") || cell.includes("goods and services")) {
+        itemHeaderRow = r;
+        descCol = c;
+      }
+      if (cell.includes("hsn")) hsnCol = c;
+      if (cell === "quantity" || cell === "qty") qtyCol = c;
+      if (cell === "per" || cell === "unit") unitCol = c;
+      if (cell === "amount") amountCol = c;
+    }
+    if (itemHeaderRow !== -1 && hsnCol !== -1) break;
+  }
+
+  if (itemHeaderRow === -1 || !docNo) {
+    return null;
+  }
+
+  const items: EWayBillItem[] = [];
+  let otherValue = 0;
+
+  for (let r = itemHeaderRow + 1; r < grid.length; r++) {
+    const row = grid[r];
+    const col0 = String(row[0] || "").trim();
+    const fullRowStr = row.map((x) => String(x || "").trim()).join(" ");
+
+    if (
+      /^total/i.test(col0) ||
+      fullRowStr.toLowerCase().includes("amount chargeable") ||
+      fullRowStr.toLowerCase().includes("hsn/sac")
+    ) {
+      break;
+    }
+
+    if (/^\d+$/.test(col0)) {
+      const desc = descCol !== -1 ? String(row[descCol] || "").trim() : "";
+      const hsn = hsnCol !== -1 ? String(row[hsnCol] || "").trim() : "";
+      const qty = qtyCol !== -1 ? Number(row[qtyCol]) || 1 : 1;
+      let unit =
+        unitCol !== -1 ? String(row[unitCol] || "NOS").trim().toUpperCase() : "NOS";
+      if (unit === "PC") unit = "PCS";
+      const amt = amountCol !== -1 ? Number(row[amountCol]) || 0 : 0;
+
+      const gstRate = hsnRates.get(hsn) || 18;
+
+      items.push({
+        itemNo: items.length + 1,
+        productName: desc || "Goods",
+        productDesc: desc,
+        hsnCode: hsn,
+        quantity: qty,
+        qtyUnit: unit,
+        taxableAmount: amt,
+        cgstRate: 0,
+        sgstRate: 0,
+        igstRate: gstRate,
+        cessRate: 0,
+      });
+    } else if (
+      fullRowStr.toLowerCase().includes("freight") ||
+      fullRowStr.toLowerCase().includes("cartage")
+    ) {
+      const amt = amountCol !== -1 ? Number(row[amountCol]) || 0 : 0;
+      otherValue += amt;
+    }
+  }
+
+  if (items.length === 0) return null;
+
+  return {
+    userGstin: defaultUserGstin || fromGstin,
+    supplyType: "O",
+    subSupplyType: 1,
+    docType: "INV",
+    docNo,
+    docDate: docDate || "14/10/2026",
+    transType: 1,
+
+    fromGstin,
+    fromTrdName,
+    fromAddr1,
+    fromAddr2,
+    fromPlace,
+    fromPincode,
+    actFromStateCode: fromStateCode,
+    fromStateCode,
+
+    toGstin,
+    toTrdName,
+    toAddr1,
+    toAddr2,
+    toPlace: toPlace || "Dehradun",
+    toPincode,
+    actToStateCode: toStateCode,
+    toStateCode,
+
+    totalValue: 0,
+    cgstValue: 0,
+    sgstValue: 0,
+    igstValue: 0,
+    cessValue: 0,
+    cessNonAdvolValue: 0,
+    otherValue,
+    totInvValue: 0,
+
+    transDistance: 100,
+    transMode: "1",
+    vehicleType: "R",
+
+    itemList: items,
+  };
+}
+
+function findHeaderRowIndex(grid: any[][]): number {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  for (let r = 0; r < Math.min(grid.length, 15); r++) {
+    const row = grid[r];
+    for (const cell of row) {
+      const norm = normalize(String(cell || ""));
+      if (
+        norm === "docno" ||
+        norm === "documentno" ||
+        norm === "invoiceno" ||
+        norm === "invno" ||
+        norm === "invoicenumber"
+      ) {
+        return r;
+      }
+    }
+  }
+  return -1;
+}
+
+export function parseExcelFile(
+  data: ArrayBuffer,
+  defaultCompanyOrGstin?: Partial<CompanyProfile> | string
+): ParsedExcelResult {
+  const wb = XLSX.read(data, { type: "array" });
   const rowErrors: { row: number; invoiceNo: string; message: string }[] = [];
   const billsMap = new Map<string, EWayBillDocument>();
 
-  const normalizeKey = (key: string) =>
-    key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const defaultUserGstin =
+    typeof defaultCompanyOrGstin === "string"
+      ? defaultCompanyOrGstin
+      : defaultCompanyOrGstin?.gstin || "";
 
-  rawRows.forEach((row, idx) => {
-    const rowNum = idx + 2; // header is row 1
-    const normalizedRow: Record<string, any> = {};
-    for (const [k, v] of Object.entries(row)) {
-      normalizedRow[normalizeKey(k)] = v;
-    }
+  const defaultFromPin =
+    typeof defaultCompanyOrGstin === "object"
+      ? Number(defaultCompanyOrGstin?.pincode) || undefined
+      : undefined;
 
-    const docNo = String(
-      normalizedRow["docno"] ||
-        normalizedRow["documentno"] ||
-        normalizedRow["invoiceno"] ||
-        normalizedRow["invno"] ||
-        ""
-    ).trim();
+  let totalRawRows = 0;
 
-    if (!docNo) {
-      rowErrors.push({
-        row: rowNum,
-        invoiceNo: "N/A",
-        message: "Missing invoice / document number in row.",
-      });
-      return;
-    }
+  // 1. Check if any sheet is a Tally Tax Invoice format
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    const grid: any[][] = XLSX.utils.sheet_to_json(ws, {
+      header: 1,
+      defval: "",
+    });
+    totalRawRows += grid.length;
 
-    // Parse date
-    let docDate = String(
-      normalizedRow["docdate"] ||
-        normalizedRow["documentdate"] ||
-        normalizedRow["invoicedate"] ||
-        ""
-    ).trim();
-
-    // In case Excel parsed it as a number
-    if (typeof docDate === "number" || (!docDate.includes("/") && !isNaN(Number(docDate)))) {
-      const parsedDate = XLSX.SSF.parse_date_code(Number(docDate));
-      if (parsedDate) {
-        docDate = `${String(parsedDate.d).padStart(2, "0")}/${String(
-          parsedDate.m
-        ).padStart(2, "0")}/${parsedDate.y}`;
+    if (isTallyInvoiceSheet(grid)) {
+      const tallyBill = parseTallyInvoiceGrid(
+        grid,
+        defaultUserGstin,
+        defaultFromPin
+      );
+      if (tallyBill) {
+        billsMap.set(tallyBill.docNo, tallyBill);
       }
     }
+  }
 
-    const fromGstin = String(
-      normalizedRow["fromgstin"] ||
-        normalizedRow["suppliergstin"] ||
-        defaultUserGstin ||
-        ""
-    ).trim().toUpperCase();
+  // 2. If no Tally invoices found, proceed with Tabular bulk import
+  if (billsMap.size === 0) {
+    const normalizeKey = (key: string) =>
+      key.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-    const toGstin = String(
-      normalizedRow["togstin"] || normalizedRow["recipientgstin"] || ""
-    ).trim().toUpperCase();
+    let hasFoundAnyHeaders = false;
 
-    const fromStateCode =
-      Number(
-        normalizedRow["fromstatecode"] ||
-          normalizedRow["fromstate"] ||
-          (fromGstin.length >= 2 && !isNaN(Number(fromGstin.substring(0, 2)))
-            ? fromGstin.substring(0, 2)
-            : 0)
-      ) || 0;
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      const grid: any[][] = XLSX.utils.sheet_to_json(ws, {
+        header: 1,
+        defval: "",
+      });
 
-    const toStateCode =
-      Number(
-        normalizedRow["tostatecode"] ||
-          normalizedRow["tostate"] ||
-          (toGstin.length >= 2 && !isNaN(Number(toGstin.substring(0, 2)))
-            ? toGstin.substring(0, 2)
-            : 0)
-      ) || 0;
+      const headerIdx = findHeaderRowIndex(grid);
+      if (headerIdx === -1) {
+        continue;
+      }
 
-    const actFromStateCode =
-      Number(
-        normalizedRow["actualdispatchstatecode"] ||
-          normalizedRow["actfromstatecode"] ||
-          fromStateCode
-      ) || fromStateCode;
+      hasFoundAnyHeaders = true;
+      const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, {
+        range: headerIdx,
+        defval: "",
+      });
 
-    const actToStateCode =
-      Number(
-        normalizedRow["actualshiptostatecode"] ||
-          normalizedRow["acttostatecode"] ||
-          toStateCode
-      ) || toStateCode;
+      rawRows.forEach((row, idx) => {
+        const rowNum = headerIdx + idx + 2;
+        const normalizedRow: Record<string, any> = {};
+        for (const [k, v] of Object.entries(row)) {
+          normalizedRow[normalizeKey(k)] = v;
+        }
 
-    // Item details
-    const productName = String(
-      normalizedRow["itemname"] ||
-        normalizedRow["productname"] ||
-        normalizedRow["goodsdesc"] ||
-        "Item"
-    ).trim();
-
-    const productDesc = String(
-      normalizedRow["itemdescription"] ||
-        normalizedRow["productdesc"] ||
-        productName
-    ).trim();
-
-    const hsnCode =
-      normalizedRow["hsncode"] || normalizedRow["hsn"] || 0;
-
-    const quantity =
-      Number(normalizedRow["quantity"] || normalizedRow["qty"] || 1) || 1;
-
-    const qtyUnit = String(
-      normalizedRow["unit"] ||
-        normalizedRow["qtyunit"] ||
-        normalizedRow["uqc"] ||
-        "NOS"
-    ).trim().toUpperCase();
-
-    const taxableAmount =
-      Number(
-        normalizedRow["taxableamount"] ||
-          normalizedRow["taxablevalue"] ||
-          normalizedRow["value"] ||
-          0
-      ) || 0;
-
-    const cgstRate =
-      Number(normalizedRow["cgstrate"] || normalizedRow["cgst"] || 0) || 0;
-    const sgstRate =
-      Number(normalizedRow["sgstrate"] || normalizedRow["sgst"] || 0) || 0;
-    const igstRate =
-      Number(normalizedRow["igstrate"] || normalizedRow["igst"] || 0) || 0;
-    const cessRate =
-      Number(normalizedRow["cessrate"] || normalizedRow["cess"] || 0) || 0;
-
-    const item: EWayBillItem = {
-      itemNo: 1,
-      productName,
-      productDesc,
-      hsnCode,
-      quantity,
-      qtyUnit,
-      taxableAmount,
-      cgstRate,
-      sgstRate,
-      igstRate,
-      cessRate,
-      cessNonadvol: 0,
-    };
-
-    if (billsMap.has(docNo)) {
-      const existing = billsMap.get(docNo)!;
-      item.itemNo = existing.itemList.length + 1;
-      existing.itemList.push(item);
-    } else {
-      const newBill: EWayBillDocument = {
-        userGstin: defaultUserGstin || fromGstin,
-        supplyType: (String(normalizedRow["supplytype"] || "O").toUpperCase() ===
-        "I"
-          ? "I"
-          : "O") as "O" | "I",
-        subSupplyType:
-          Number(normalizedRow["subsupplytype"] || normalizedRow["subsupply"] || 1) ||
-          1,
-        subSupplyDesc: String(normalizedRow["subsupplydesc"] || "").trim(),
-        docType: (String(normalizedRow["doctype"] || "INV").toUpperCase() ||
-          "INV") as any,
-        docNo,
-        docDate: docDate || "14/10/2026",
-        transType:
-          Number(
-            normalizedRow["transactiontype"] ||
-              normalizedRow["transtype"] ||
-              1
-          ) || 1,
-
-        fromGstin,
-        fromTrdName: String(
-          normalizedRow["fromlegaltradename"] ||
-            normalizedRow["fromname"] ||
-            normalizedRow["fromtrdname"] ||
+        const docNo = String(
+          normalizedRow["docno"] ||
+            normalizedRow["documentno"] ||
+            normalizedRow["invoiceno"] ||
+            normalizedRow["invno"] ||
             ""
-        ).trim(),
-        fromAddr1: String(
-          normalizedRow["fromaddress1"] ||
-            normalizedRow["fromaddr1"] ||
-            normalizedRow["fromaddress"] ||
+        ).trim();
+
+        if (!docNo) {
+          rowErrors.push({
+            row: rowNum,
+            invoiceNo: "N/A",
+            message: "Missing invoice / document number in row.",
+          });
+          return;
+        }
+
+        let docDate = parseFormattedDate(
+          normalizedRow["docdate"] ||
+            normalizedRow["documentdate"] ||
+            normalizedRow["invoicedate"] ||
             ""
-        ).trim(),
-        fromAddr2: String(
-          normalizedRow["fromaddress2"] || normalizedRow["fromaddr2"] || ""
-        ).trim(),
-        fromPlace: String(
-          normalizedRow["fromplace"] || normalizedRow["fromcity"] || ""
-        ).trim(),
-        fromPincode:
-          Number(
-            normalizedRow["frompincode"] || normalizedRow["frompin"] || 0
-          ) || 0,
-        actFromStateCode,
-        fromStateCode,
+        );
 
-        toGstin,
-        toTrdName: String(
-          normalizedRow["tolegaltradename"] ||
-            normalizedRow["toname"] ||
-            normalizedRow["totrdname"] ||
+        const fromGstin = String(
+          normalizedRow["fromgstin"] ||
+            normalizedRow["suppliergstin"] ||
+            defaultUserGstin ||
             ""
-        ).trim(),
-        toAddr1: String(
-          normalizedRow["toaddress1"] ||
-            normalizedRow["toaddr1"] ||
-            normalizedRow["toaddress"] ||
-            ""
-        ).trim(),
-        toAddr2: String(
-          normalizedRow["toaddress2"] || normalizedRow["toaddr2"] || ""
-        ).trim(),
-        toPlace: String(
-          normalizedRow["toplace"] || normalizedRow["tocity"] || ""
-        ).trim(),
-        toPincode:
+        ).trim().toUpperCase();
+
+        const toGstin = String(
+          normalizedRow["togstin"] || normalizedRow["recipientgstin"] || ""
+        ).trim().toUpperCase();
+
+        const fromStateCode =
           Number(
-            normalizedRow["topincode"] || normalizedRow["topin"] || 0
-          ) || 0,
-        actToStateCode,
-        toStateCode,
+            normalizedRow["fromstatecode"] ||
+              normalizedRow["fromstate"] ||
+              (fromGstin.length >= 2 && !isNaN(Number(fromGstin.substring(0, 2)))
+                ? fromGstin.substring(0, 2)
+                : 0)
+          ) || 0;
 
-        totalValue: taxableAmount,
-        cgstValue: 0,
-        sgstValue: 0,
-        igstValue: 0,
-        cessValue: 0,
-        cessNonAdvolValue: 0,
-        otherValue:
+        const toStateCode =
           Number(
-            normalizedRow["othercharges"] || normalizedRow["othervalue"] || 0
-          ) || 0,
-        totInvValue: 0,
+            normalizedRow["tostatecode"] ||
+              normalizedRow["tostate"] ||
+              (toGstin.length >= 2 && !isNaN(Number(toGstin.substring(0, 2)))
+                ? toGstin.substring(0, 2)
+                : 0)
+          ) || 0;
 
-        transporterId: String(
-          normalizedRow["transporterid"] || normalizedRow["transid"] || ""
-        ).trim(),
-        transporterName: String(
-          normalizedRow["transportername"] || normalizedRow["transname"] || ""
-        ).trim(),
-        transMode: String(
-          normalizedRow["transportmode"] ||
-            normalizedRow["transmode"] ||
-            "1"
-        ).trim(),
-        transDistance:
+        const actFromStateCode =
           Number(
-            normalizedRow["distance"] ||
-              normalizedRow["transdistance"] ||
-              100
-          ) || 100,
-        transDocNo: String(
-          normalizedRow["transportdocno"] || normalizedRow["transdocno"] || ""
-        ).trim(),
-        transDocDate: String(
-          normalizedRow["transportdocdate"] ||
-            normalizedRow["transdocdate"] ||
-            ""
-        ).trim(),
-        vehicleNo: String(
-          normalizedRow["vehicleno"] || normalizedRow["vehiclenumber"] || ""
-        ).trim(),
-        vehicleType: (String(
-          normalizedRow["vehicletype"] || "R"
-        ).toUpperCase() === "O"
-          ? "O"
-          : "R") as any,
+            normalizedRow["actualdispatchstatecode"] ||
+              normalizedRow["actfromstatecode"] ||
+              fromStateCode
+          ) || fromStateCode;
 
-        itemList: [item],
-      };
+        const actToStateCode =
+          Number(
+            normalizedRow["actualshiptostatecode"] ||
+              normalizedRow["acttostatecode"] ||
+              toStateCode
+          ) || toStateCode;
 
-      billsMap.set(docNo, newBill);
+        const productName = String(
+          normalizedRow["itemname"] ||
+            normalizedRow["productname"] ||
+            normalizedRow["goodsdesc"] ||
+            "Item"
+        ).trim();
+
+        const productDesc = String(
+          normalizedRow["itemdescription"] ||
+            normalizedRow["productdesc"] ||
+            productName
+        ).trim();
+
+        const hsnCode =
+          normalizedRow["hsncode"] || normalizedRow["hsn"] || 0;
+
+        const quantity =
+          Number(normalizedRow["quantity"] || normalizedRow["qty"] || 1) || 1;
+
+        const qtyUnit = String(
+          normalizedRow["unit"] ||
+            normalizedRow["qtyunit"] ||
+            normalizedRow["uqc"] ||
+            "NOS"
+        ).trim().toUpperCase();
+
+        const taxableAmount =
+          Number(
+            normalizedRow["taxableamount"] ||
+              normalizedRow["taxableamountrs"] ||
+              normalizedRow["taxablevalue"] ||
+              normalizedRow["taxablevaluers"] ||
+              normalizedRow["value"] ||
+              0
+          ) || 0;
+
+        const cgstRate =
+          Number(normalizedRow["cgstrate"] || normalizedRow["cgst"] || 0) || 0;
+        const sgstRate =
+          Number(normalizedRow["sgstrate"] || normalizedRow["sgst"] || 0) || 0;
+        const igstRate =
+          Number(normalizedRow["igstrate"] || normalizedRow["igst"] || 0) || 0;
+        const cessRate =
+          Number(normalizedRow["cessrate"] || normalizedRow["cess"] || 0) || 0;
+
+        const otherCharges =
+          Number(
+            normalizedRow["othercharges"] ||
+              normalizedRow["otherchargesrs"] ||
+              normalizedRow["othervalue"] ||
+              0
+          ) || 0;
+
+        const item: EWayBillItem = {
+          itemNo: 1,
+          productName,
+          productDesc,
+          hsnCode,
+          quantity,
+          qtyUnit,
+          taxableAmount,
+          cgstRate,
+          sgstRate,
+          igstRate,
+          cessRate,
+          cessNonadvol: 0,
+        };
+
+        if (billsMap.has(docNo)) {
+          const existing = billsMap.get(docNo)!;
+          item.itemNo = existing.itemList.length + 1;
+          existing.itemList.push(item);
+        } else {
+          const newBill: EWayBillDocument = {
+            userGstin: defaultUserGstin || fromGstin,
+            supplyType: (String(normalizedRow["supplytype"] || "O").toUpperCase() ===
+            "I"
+              ? "I"
+              : "O") as "O" | "I",
+            subSupplyType:
+              Number(
+                normalizedRow["subsupplytype"] || normalizedRow["subsupply"] || 1
+              ) || 1,
+            subSupplyDesc: String(normalizedRow["subsupplydesc"] || "").trim(),
+            docType: (String(normalizedRow["doctype"] || "INV").toUpperCase() ||
+              "INV") as any,
+            docNo,
+            docDate: docDate || "14/10/2026",
+            transType:
+              Number(
+                normalizedRow["transactiontype"] ||
+                  normalizedRow["transtype"] ||
+                  1
+              ) || 1,
+
+            fromGstin,
+            fromTrdName: String(
+              normalizedRow["fromlegaltradename"] ||
+                normalizedRow["fromname"] ||
+                normalizedRow["fromtrdname"] ||
+                ""
+            ).trim(),
+            fromAddr1: String(
+              normalizedRow["fromaddress1"] ||
+                normalizedRow["fromaddr1"] ||
+                normalizedRow["fromaddress"] ||
+                ""
+            ).trim(),
+            fromAddr2: String(
+              normalizedRow["fromaddress2"] || normalizedRow["fromaddr2"] || ""
+            ).trim(),
+            fromPlace: String(
+              normalizedRow["fromplace"] || normalizedRow["fromcity"] || ""
+            ).trim(),
+            fromPincode:
+              Number(
+                normalizedRow["frompincode"] || normalizedRow["frompin"] || 0
+              ) || 0,
+            actFromStateCode,
+            fromStateCode,
+
+            toGstin,
+            toTrdName: String(
+              normalizedRow["tolegaltradename"] ||
+                normalizedRow["toname"] ||
+                normalizedRow["totrdname"] ||
+                ""
+            ).trim(),
+            toAddr1: String(
+              normalizedRow["toaddress1"] ||
+                normalizedRow["toaddr1"] ||
+                normalizedRow["toaddress"] ||
+                ""
+            ).trim(),
+            toAddr2: String(
+              normalizedRow["toaddress2"] || normalizedRow["toaddr2"] || ""
+            ).trim(),
+            toPlace: String(
+              normalizedRow["toplace"] || normalizedRow["tocity"] || ""
+            ).trim(),
+            toPincode:
+              Number(
+                normalizedRow["topincode"] || normalizedRow["topin"] || 0
+              ) || 0,
+            actToStateCode,
+            toStateCode,
+
+            totalValue: taxableAmount,
+            cgstValue: 0,
+            sgstValue: 0,
+            igstValue: 0,
+            cessValue: 0,
+            cessNonAdvolValue: 0,
+            otherValue: otherCharges,
+            totInvValue: 0,
+
+            transporterId: String(
+              normalizedRow["transporterid"] || normalizedRow["transid"] || ""
+            ).trim(),
+            transporterName: String(
+              normalizedRow["transportername"] || normalizedRow["transname"] || ""
+            ).trim(),
+            transMode: String(
+              normalizedRow["transportmode"] ||
+                normalizedRow["transmode"] ||
+                "1"
+            ).trim(),
+            transDistance:
+              Number(
+                normalizedRow["distance"] ||
+                  normalizedRow["transdistance"] ||
+                  100
+              ) || 100,
+            transDocNo: String(
+              normalizedRow["transportdocno"] || normalizedRow["transdocno"] || ""
+            ).trim(),
+            transDocDate: String(
+              normalizedRow["transportdocdate"] ||
+                normalizedRow["transdocdate"] ||
+                ""
+            ).trim(),
+            vehicleNo: String(
+              normalizedRow["vehicleno"] || normalizedRow["vehiclenumber"] || ""
+            ).trim(),
+            vehicleType: (String(
+              normalizedRow["vehicletype"] || "R"
+            ).toUpperCase() === "O"
+              ? "O"
+              : "R") as any,
+
+            itemList: [item],
+          };
+
+          billsMap.set(docNo, newBill);
+        }
+      });
     }
-  });
+
+    if (!hasFoundAnyHeaders && billsMap.size === 0) {
+      rowErrors.push({
+        row: 1,
+        invoiceNo: "N/A",
+        message:
+          "Unrecognized spreadsheet structure. Missing invoice / document number column (expected 'Doc No' or 'Invoice No'). Please download the standard bulk template using 'Download Excel Template' or upload a Tally Tax Invoice export.",
+      });
+    }
+  }
 
   const parsedBills: EWayBillDocument[] = [];
   let validInvoices = 0;
   let invalidInvoices = 0;
 
   for (const bill of billsMap.values()) {
-    // Recalculate totals
     const recalculated = recalculateBill(bill, true);
     const errors = validateEWayBill(recalculated);
     const hasError = errors.some((e) => e.severity === "error");
@@ -523,7 +967,7 @@ export function parseExcelFile(
 
   return {
     bills: parsedBills,
-    totalRows: rawRows.length,
+    totalRows: totalRawRows,
     totalInvoices: parsedBills.length,
     validInvoices,
     invalidInvoices,

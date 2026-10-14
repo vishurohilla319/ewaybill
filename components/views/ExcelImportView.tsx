@@ -82,7 +82,7 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
     reader.onload = (e) => {
       try {
         const buffer = e.target?.result as ArrayBuffer;
-        const result = parseExcelFile(buffer, activeCompany?.gstin);
+        const result = parseExcelFile(buffer, activeCompany);
         setParsedResult(result);
       } catch (err: any) {
         alert(`Failed to parse spreadsheet file: ${err?.message || err}`);
@@ -222,8 +222,8 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
           <h3 className="text-sm font-bold text-slate-800">
             {isProcessing ? "Processing Spreadsheet..." : "Click to select or drag & drop Excel / CSV file"}
           </h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-            Supports Microsoft Excel (.xlsx, .xls) and CSV files. Rows with the same invoice number will automatically be bundled into multi-item documents.
+          <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1">
+            Supports Bulk Invoices (.xlsx, .xls, .csv) and direct Tally Tax Invoice exports. Multi-item invoices are automatically parsed and structured.
           </p>
 
           <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-500">
