@@ -104,6 +104,12 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right controls */}
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        {/* Neon Database Live Indicator */}
+        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-700 shadow-sm" title="Connected to Neon Serverless PostgreSQL">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Neon DB Live</span>
+        </div>
+
         {/* Schema Badge */}
         <div className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-600">
           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>

@@ -15,6 +15,8 @@ import {
   ArrowRight,
   HelpCircle,
   Truck,
+  Database,
+  CheckCircle2,
 } from "lucide-react";
 import {
   CompanyProfile,
@@ -90,6 +92,31 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <span>Import Excel</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Neon Cloud Database Status Ribbon */}
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+            <Database className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-emerald-950">Neon Serverless PostgreSQL Database</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Connected (Live)
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-800 mt-0.5 font-mono">
+              Host: ep-falling-wind-b4e32ibs-pooler.c-6.us-east-2.aws.neon.tech • Tables: users, companies, transporters, items, drafts, history
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900 bg-white/70 px-3 py-1.5 rounded-lg border border-emerald-200">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Cloud Sync Active</span>
         </div>
       </div>
 

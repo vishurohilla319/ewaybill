@@ -118,6 +118,18 @@ export default function Home() {
     setHistory(loadedHistory);
     setSettings(loadedSettings);
     setMounted(true);
+
+    // Sync live from Neon PostgreSQL in the background
+    StorageService.syncFromNeon().then((success) => {
+      if (success) {
+        setCompanies(StorageService.getCompanies());
+        setActiveCompanyId(StorageService.getActiveCompanyId());
+        setTransporters(StorageService.getTransporters());
+        setItems(StorageService.getItems());
+        setDrafts(StorageService.getDrafts());
+        setHistory(StorageService.getHistory());
+      }
+    });
   }, []);
 
   const activeCompany =

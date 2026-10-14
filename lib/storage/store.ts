@@ -146,7 +146,66 @@ function safeSet<T>(key: string, value: T): void {
   }
 }
 
+// Background sync helpers with Neon API routes
+async function apiPost(endpoint: string, data: any) {
+  if (typeof window === "undefined") return;
+  try {
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  } catch (err) {
+    console.warn(`Failed background sync to ${endpoint}:`, err);
+  }
+}
+
+async function apiDelete(endpoint: string, id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    await fetch(`${endpoint}?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    console.warn(`Failed background delete to ${endpoint}:`, err);
+  }
+}
+
 export const StorageService = {
+  // Sync all masters and records from Neon PostgreSQL
+  syncFromNeon: async (): Promise<boolean> => {
+    if (typeof window === "undefined") return false;
+    try {
+      const [compRes, transRes, itemRes, draftRes, histRes] = await Promise.allSettled([
+        fetch("/api/companies").then((r) => r.ok ? r.json() : null),
+        fetch("/api/transporters").then((r) => r.ok ? r.json() : null),
+        fetch("/api/items").then((r) => r.ok ? r.json() : null),
+        fetch("/api/drafts").then((r) => r.ok ? r.json() : null),
+        fetch("/api/history").then((r) => r.ok ? r.json() : null),
+      ]);
+
+      if (compRes.status === "fulfilled" && compRes.value && compRes.value.length > 0) {
+        StorageService.saveCompanies(compRes.value, false);
+      }
+      if (transRes.status === "fulfilled" && transRes.value && transRes.value.length > 0) {
+        StorageService.saveTransporters(transRes.value, false);
+      }
+      if (itemRes.status === "fulfilled" && itemRes.value && itemRes.value.length > 0) {
+        StorageService.saveItems(itemRes.value, false);
+      }
+      if (draftRes.status === "fulfilled" && draftRes.value) {
+        safeSet(STORAGE_KEYS.DRAFTS, draftRes.value);
+      }
+      if (histRes.status === "fulfilled" && histRes.value) {
+        safeSet(STORAGE_KEYS.HISTORY, histRes.value);
+      }
+      return true;
+    } catch (e) {
+      console.warn("Neon sync could not complete:", e);
+      return false;
+    }
+  },
+
   getCompanies: (): CompanyProfile[] => {
     return safeGet<CompanyProfile[]>(
       STORAGE_KEYS.COMPANIES,
@@ -154,8 +213,11 @@ export const StorageService = {
     );
   },
 
-  saveCompanies: (companies: CompanyProfile[]): void => {
+  saveCompanies: (companies: CompanyProfile[], syncRemote: boolean = true): void => {
     safeSet(STORAGE_KEYS.COMPANIES, companies);
+    if (syncRemote) {
+      companies.forEach((comp) => apiPost("/api/companies", comp));
+    }
   },
 
   getActiveCompanyId: (): string => {
@@ -183,16 +245,22 @@ export const StorageService = {
     );
   },
 
-  saveTransporters: (transporters: TransporterMaster[]): void => {
+  saveTransporters: (transporters: TransporterMaster[], syncRemote: boolean = true): void => {
     safeSet(STORAGE_KEYS.TRANSPORTERS, transporters);
+    if (syncRemote) {
+      transporters.forEach((trans) => apiPost("/api/transporters", trans));
+    }
   },
 
   getItems: (): ItemMaster[] => {
     return safeGet<ItemMaster[]>(STORAGE_KEYS.ITEMS, DEFAULT_ITEMS);
   },
 
-  saveItems: (items: ItemMaster[]): void => {
+  saveItems: (items: ItemMaster[], syncRemote: boolean = true): void => {
     safeSet(STORAGE_KEYS.ITEMS, items);
+    if (syncRemote) {
+      items.forEach((item) => apiPost("/api/items", item));
+    }
   },
 
   getDrafts: (): DraftBill[] => {
@@ -212,11 +280,13 @@ export const StorageService = {
       drafts.unshift(draft);
     }
     safeSet(STORAGE_KEYS.DRAFTS, drafts);
+    apiPost("/api/drafts", draft);
   },
 
   deleteDraft: (id: string): void => {
     const drafts = StorageService.getDrafts().filter((d) => d.id !== id);
     safeSet(STORAGE_KEYS.DRAFTS, drafts);
+    apiDelete("/api/drafts", id);
   },
 
   getHistory: (): ExportHistoryRecord[] => {
@@ -226,9 +296,9 @@ export const StorageService = {
   addHistoryRecord: (record: ExportHistoryRecord): void => {
     const history = StorageService.getHistory();
     history.unshift(record);
-    // Keep last 100 exports
     if (history.length > 100) history.pop();
     safeSet(STORAGE_KEYS.HISTORY, history);
+    apiPost("/api/history", record);
   },
 
   clearHistory: (): void => {
