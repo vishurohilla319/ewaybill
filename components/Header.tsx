@@ -1,14 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   FilePlus,
   HelpCircle,
   ExternalLink,
   ShieldAlert,
   Building,
+  User,
+  LogOut,
+  ChevronDown,
+  KeyRound,
 } from "lucide-react";
 import { CompanyProfile } from "../lib/types/ewayBill";
+import { UserAccount } from "../lib/types/auth";
 
 interface HeaderProps {
   currentTab: string;
@@ -16,6 +21,9 @@ interface HeaderProps {
   activeCompany?: CompanyProfile;
   schemaVersion: string;
   onOpenInstructions: () => void;
+  currentUser?: UserAccount;
+  onOpenProfile?: () => void;
+  onLogout?: () => void;
 }
 
 const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
@@ -71,14 +79,19 @@ export const Header: React.FC<HeaderProps> = ({
   activeCompany,
   schemaVersion,
   onOpenInstructions,
+  currentUser,
+  onOpenProfile,
+  onLogout,
 }) => {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
   const currentInfo = TAB_TITLES[currentTab] || {
     title: "E-Way Bill Generator",
     subtitle: "Production-ready portal JSON generation software",
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-10 shadow-sm">
+    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-10 shadow-sm relative">
       <div className="flex flex-col">
         <h1 className="text-lg font-bold text-slate-800 leading-tight">
           {currentInfo.title}
@@ -90,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="flex items-center gap-3">
         {/* Schema Badge */}
-        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-xs font-mono text-slate-600">
+        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-xs font-mono text-slate-600">
           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
           <span>NIC Bulk v{schemaVersion}</span>
         </div>
@@ -98,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Portal Notice Pill */}
         <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
           <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-          <span>Manual Portal Upload Required</span>
+          <span>Manual Portal Upload</span>
         </div>
 
         {/* Upload Guide Button */}
@@ -120,6 +133,79 @@ export const Header: React.FC<HeaderProps> = ({
             <FilePlus className="w-3.5 h-3.5" />
             <span>Create Bill</span>
           </button>
+        )}
+
+        {/* User Account Menu */}
+        {currentUser && (
+          <div className="relative pl-2 border-l border-slate-200">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <div
+                className={`w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center ${
+                  currentUser.avatarColor || "bg-indigo-600"
+                } shadow-sm`}
+              >
+                {currentUser.fullName.charAt(0)}
+              </div>
+              <div className="hidden md:flex flex-col text-left leading-tight">
+                <span className="text-xs font-bold text-slate-800 max-w-[120px] truncate">
+                  {currentUser.fullName}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {currentUser.userId}
+                </span>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {userMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-20"
+                  onClick={() => setUserMenuOpen(false)}
+                ></div>
+                <div className="absolute right-0 top-12 z-30 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3.5 py-2 border-b border-slate-100">
+                    <div className="font-bold text-slate-800">
+                      {currentUser.fullName}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono">
+                      {currentUser.email}
+                    </div>
+                    <div className="mt-1">
+                      <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold">
+                        {currentUser.role}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      if (onOpenProfile) onOpenProfile();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
+                  >
+                    <User className="w-3.5 h-3.5 text-slate-400" />
+                    <span>My Profile & Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      if (onLogout) onLogout();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors font-medium border-t border-slate-100"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
     </header>

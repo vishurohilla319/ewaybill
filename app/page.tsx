@@ -16,6 +16,10 @@ import { TransporterMasterView } from "../components/views/TransporterMasterView
 import { ItemMasterView } from "../components/views/ItemMasterView";
 import { InstructionsView } from "../components/views/InstructionsView";
 import { SettingsView } from "../components/views/SettingsView";
+import { LoginPage } from "../components/auth/LoginPage";
+import { UserProfileModal } from "../components/auth/UserProfileModal";
+import { AuthSession, UserAccount } from "../lib/types/auth";
+import { AuthService, DEFAULT_USERS } from "../lib/storage/authService";
 import {
   AppSettings,
   CompanyProfile,
@@ -38,6 +42,10 @@ import { downloadJsonFile } from "../lib/engine/jsonGenerator";
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [currentTab, setCurrentTab] = useState<string>("dashboard");
+
+  // Authentication State
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Persistent States
   const [companies, setCompanies] = useState<CompanyProfile[]>([]);
@@ -87,6 +95,21 @@ export default function Home() {
     const loadedHistory = StorageService.getHistory();
     const loadedSettings = StorageService.getSettings();
 
+    // Load auth session or auto-initialize with default admin session if first visit
+    let currentSession = AuthService.getSession();
+    if (!currentSession) {
+      // Auto-start with default session so the user gets straight to work,
+      // or they can switch user anytime using User ID & Password
+      const defaultUser = DEFAULT_USERS[0]; // Vishu Rohilla
+      currentSession = {
+        user: defaultUser,
+        token: `fintax_tok_${Date.now()}`,
+        loginTime: new Date().toLocaleString("en-IN"),
+      };
+      AuthService.setSession(currentSession);
+    }
+
+    setSession(currentSession);
     setCompanies(loadedCompanies);
     setActiveCompanyId(loadedActiveId);
     setTransporters(loadedTransporters);
@@ -99,6 +122,42 @@ export default function Home() {
 
   const activeCompany =
     companies.find((c) => c.id === activeCompanyId) || companies[0];
+
+  // Auth Handlers
+  const handleLoginSuccess = (newSession: AuthSession) => {
+    setSession(newSession);
+    const userCompany = companies.find((c) => c.id === newSession.user.companyId);
+    if (userCompany) {
+      setActiveCompanyId(userCompany.id);
+      StorageService.setActiveCompanyId(userCompany.id);
+    }
+  };
+
+  const handleLogout = () => {
+    AuthService.logout();
+    setSession(null);
+  };
+
+  const handleSwitchUser = (targetUserId: string) => {
+    const allUsers = AuthService.getUsers();
+    const target = allUsers.find((u) => u.userId === targetUserId);
+    if (!target) return;
+
+    const res = AuthService.login({
+      userId: target.userId,
+      password: target.password,
+    });
+
+    if (res.success && res.session) {
+      setSession(res.session);
+      setIsProfileModalOpen(false);
+      // Switch to company
+      if (target.companyId) {
+        setActiveCompanyId(target.companyId);
+        StorageService.setActiveCompanyId(target.companyId);
+      }
+    }
+  };
 
   // Company management
   const handleSelectActiveCompany = (id: string) => {
@@ -313,6 +372,11 @@ export default function Home() {
     );
   }
 
+  // If user is logged out, show the Login / Register screen
+  if (!session) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       {/* Sidebar Navigation */}
@@ -325,6 +389,9 @@ export default function Home() {
         activeCompany={activeCompany}
         companies={companies}
         onSelectCompany={handleSelectActiveCompany}
+        currentUser={session.user}
+        onOpenProfile={() => setIsProfileModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -336,6 +403,9 @@ export default function Home() {
           activeCompany={activeCompany}
           schemaVersion={settings.schemaVersion}
           onOpenInstructions={() => setIsUploadGuideOpen(true)}
+          currentUser={session.user}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Tab View Container */}
@@ -480,6 +550,17 @@ export default function Home() {
           }
         }}
       />
+
+      {/* User Profile & Password Change Modal */}
+      {session && (
+        <UserProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          currentUser={session.user}
+          onLogout={handleLogout}
+          onSwitchUser={handleSwitchUser}
+        />
+      )}
     </div>
   );
 }

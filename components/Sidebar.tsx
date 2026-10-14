@@ -15,8 +15,11 @@ import {
   HelpCircle,
   ExternalLink,
   ShieldCheck,
+  LogOut,
+  User,
 } from "lucide-react";
 import { CompanyProfile } from "../lib/types/ewayBill";
+import { UserAccount } from "../lib/types/auth";
 
 interface SidebarProps {
   currentTab: string;
@@ -24,6 +27,9 @@ interface SidebarProps {
   activeCompany?: CompanyProfile;
   companies: CompanyProfile[];
   onSelectCompany: (id: string) => void;
+  currentUser?: UserAccount;
+  onOpenProfile?: () => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,6 +38,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeCompany,
   companies,
   onSelectCompany,
+  currentUser,
+  onOpenProfile,
+  onLogout,
 }) => {
   const menuItems = [
     { id: "dashboard", label: "Overview Dashboard", icon: LayoutDashboard },
@@ -144,6 +153,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Logged in User Bar in Sidebar */}
+      {currentUser && (
+        <div className="px-3 py-2.5 bg-slate-950/70 border-t border-slate-800/80 flex items-center justify-between">
+          <button
+            onClick={onOpenProfile}
+            className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity truncate max-w-[170px]"
+          >
+            <div className={`w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${currentUser.avatarColor || "bg-indigo-600"}`}>
+              {currentUser.fullName.charAt(0)}
+            </div>
+            <div className="truncate">
+              <div className="text-[11px] font-bold text-slate-200 truncate">
+                {currentUser.fullName}
+              </div>
+              <div className="text-[9px] font-mono text-slate-400 truncate">
+                {currentUser.userId} • {currentUser.role}
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={onLogout}
+            className="p-1 text-slate-400 hover:text-rose-400 rounded transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Active Company Selector in Footer */}
       <div className="p-3 bg-slate-950 border-t border-slate-800">
