@@ -7,111 +7,9 @@ import {
   TransporterMaster,
 } from "../types/ewayBill";
 
-const STORAGE_KEYS = {
-  COMPANIES: "fintax_ewb_companies",
-  ACTIVE_COMPANY_ID: "fintax_ewb_active_company_id",
-  TRANSPORTERS: "fintax_ewb_transporters",
-  ITEMS: "fintax_ewb_items",
-  DRAFTS: "fintax_ewb_drafts",
-  HISTORY: "fintax_ewb_history",
-  SETTINGS: "fintax_ewb_settings",
-};
-
-export const DEFAULT_COMPANIES: CompanyProfile[] = [
-  {
-    id: "comp-1",
-    legalName: "Fin Tax Solutions Pvt Ltd",
-    tradeName: "Fin Tax Technologies",
-    gstin: "07AAACF1234D1Z8",
-    address1: "Plot No. 45, Barakhamba Road",
-    address2: "Connaught Place",
-    place: "New Delhi",
-    pincode: "110001",
-    stateCode: 7,
-    phone: "+91 9876543210",
-    email: "billing@fintax.in",
-    isDefault: true,
-  },
-  {
-    id: "comp-2",
-    legalName: "Rohilla Logistics & Manufacturing Co.",
-    tradeName: "Rohilla Industries",
-    gstin: "27AABCR9988E1Z4",
-    address1: "Gala No 12, Phase 2, MIDC Industrial Area",
-    address2: "Andheri East",
-    place: "Mumbai",
-    pincode: "400093",
-    stateCode: 27,
-    phone: "+91 9811223344",
-    email: "dispatch@rohilla-industries.com",
-    isDefault: false,
-  },
-];
-
-export const DEFAULT_TRANSPORTERS: TransporterMaster[] = [
-  {
-    id: "trans-1",
-    transporterId: "07AAACT2345K1Z9",
-    name: "Delhi Super Fast Roadlines",
-    phone: "+91 9811001122",
-    email: "booking@delhisuperfast.com",
-  },
-  {
-    id: "trans-2",
-    transporterId: "27AABCV8765L1Z1",
-    name: "Vishu Logistics & Cargo Express",
-    phone: "+91 9922334455",
-    email: "ops@vishulogistics.com",
-  },
-];
-
-export const DEFAULT_ITEMS: ItemMaster[] = [
-  {
-    id: "item-1",
-    name: "Industrial Power Cable 4-Core",
-    description: "Heavy duty copper armoured cable 1100V",
-    hsnCode: "85444990",
-    unit: "MTR",
-    defaultGstRate: 18,
-    cessRate: 0,
-  },
-  {
-    id: "item-2",
-    name: "High Precision Pressure Sensors",
-    description: "Digital pneumatic pressure transducer 4-20mA",
-    hsnCode: "90262000",
-    unit: "NOS",
-    defaultGstRate: 18,
-    cessRate: 0,
-  },
-  {
-    id: "item-3",
-    name: "Heavy Duty Galvanized Steel Bolts",
-    description: "Grade 8.8 M16x75mm hex bolts with nuts",
-    hsnCode: "73181500",
-    unit: "KGS",
-    defaultGstRate: 18,
-    cessRate: 0,
-  },
-  {
-    id: "item-4",
-    name: "Solar Inverter 10kVA",
-    description: "Three-phase grid-tied solar photovoltaic inverter",
-    hsnCode: "85044080",
-    unit: "NOS",
-    defaultGstRate: 12,
-    cessRate: 0,
-  },
-  {
-    id: "item-5",
-    name: "Organic Cotton Yarn 30s",
-    description: "Combed ring spun cotton yarn for knitting",
-    hsnCode: "52051200",
-    unit: "KGS",
-    defaultGstRate: 5,
-    cessRate: 0,
-  },
-];
+export const DEFAULT_COMPANIES: CompanyProfile[] = [];
+export const DEFAULT_TRANSPORTERS: TransporterMaster[] = [];
+export const DEFAULT_ITEMS: ItemMaster[] = [];
 
 export const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: "1.0.1118",
@@ -121,8 +19,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultTransMode: "1",
   defaultVehicleType: "R",
   autoCalculateTax: true,
-  roundOffTolerance: 2.0,
-  developerCredit: "Fin Tax E-Way Bill Generator • Developed by Vishu Rohilla",
+  roundOffTolerance: 1,
+  developerCredit: "E-Way Bill Bulk Portal & Verification Generator",
 };
 
 function safeGet<T>(key: string, defaultValue: T): T {
@@ -132,7 +30,6 @@ function safeGet<T>(key: string, defaultValue: T): T {
     if (!raw) return defaultValue;
     return JSON.parse(raw);
   } catch (e) {
-    console.error(`Error reading key ${key} from storage:`, e);
     return defaultValue;
   }
 }
@@ -142,11 +39,56 @@ function safeSet<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
-    console.error(`Error writing key ${key} to storage:`, e);
+    console.error(`Error saving ${key}:`, e);
   }
 }
 
-// Background sync helpers with Neon API routes
+/**
+ * Resolves the active user ID from session or explicitly passed argument.
+ */
+export function getCurrentUserId(overrideUserId?: string): string {
+  if (overrideUserId && overrideUserId.trim()) {
+    return overrideUserId.trim().toLowerCase();
+  }
+  if (typeof window === "undefined") return "";
+  try {
+    const rawSession = localStorage.getItem("fintax_ewb_session");
+    if (rawSession) {
+      const session = JSON.parse(rawSession);
+      if (session?.user?.userId) {
+        return String(session.user.userId).trim().toLowerCase();
+      }
+    }
+  } catch {}
+  return "";
+}
+
+/**
+ * Returns a storage key strictly partitioned by user.
+ */
+export function getUserStorageKey(baseKey: string, overrideUserId?: string): string {
+  const uid = getCurrentUserId(overrideUserId);
+  return uid ? `usr_${uid}_${baseKey}` : `fintax_ewb_${baseKey}`;
+}
+
+/**
+ * Looks up user details from registered user accounts in localStorage.
+ */
+function findRegisteredUser(userId: string): any {
+  if (typeof window === "undefined" || !userId) return null;
+  try {
+    const raw = localStorage.getItem("fintax_ewb_users");
+    if (!raw) return null;
+    const users = JSON.parse(raw);
+    if (!Array.isArray(users)) return null;
+    return users.find(
+      (u: any) => String(u.userId || "").toLowerCase() === userId.toLowerCase()
+    );
+  } catch {
+    return null;
+  }
+}
+
 async function apiPost(endpoint: string, data: any) {
   if (typeof window === "undefined") return;
   try {
@@ -163,7 +105,7 @@ async function apiPost(endpoint: string, data: any) {
 async function apiDelete(endpoint: string, id: string) {
   if (typeof window === "undefined") return;
   try {
-    await fetch(`${endpoint}?id=${encodeURIComponent(id)}`, {
+    await fetch(`${endpoint}?id=${id}`, {
       method: "DELETE",
     });
   } catch (err) {
@@ -172,144 +114,175 @@ async function apiDelete(endpoint: string, id: string) {
 }
 
 export const StorageService = {
-  // Sync all masters and records from Neon PostgreSQL
+  // Sync background data if needed
   syncFromNeon: async (): Promise<boolean> => {
-    if (typeof window === "undefined") return false;
-    try {
-      const [compRes, transRes, itemRes, draftRes, histRes] = await Promise.allSettled([
-        fetch("/api/companies").then((r) => r.ok ? r.json() : null),
-        fetch("/api/transporters").then((r) => r.ok ? r.json() : null),
-        fetch("/api/items").then((r) => r.ok ? r.json() : null),
-        fetch("/api/drafts").then((r) => r.ok ? r.json() : null),
-        fetch("/api/history").then((r) => r.ok ? r.json() : null),
-      ]);
+    return true;
+  },
 
-      if (compRes.status === "fulfilled" && compRes.value && compRes.value.length > 0) {
-        StorageService.saveCompanies(compRes.value, false);
-      }
-      if (transRes.status === "fulfilled" && transRes.value && transRes.value.length > 0) {
-        StorageService.saveTransporters(transRes.value, false);
-      }
-      if (itemRes.status === "fulfilled" && itemRes.value && itemRes.value.length > 0) {
-        StorageService.saveItems(itemRes.value, false);
-      }
-      if (draftRes.status === "fulfilled" && draftRes.value) {
-        safeSet(STORAGE_KEYS.DRAFTS, draftRes.value);
-      }
-      if (histRes.status === "fulfilled" && histRes.value) {
-        safeSet(STORAGE_KEYS.HISTORY, histRes.value);
-      }
-      return true;
-    } catch (e) {
-      console.warn("Neon sync could not complete:", e);
-      return false;
+  getCompanies: (userId?: string): CompanyProfile[] => {
+    const uid = getCurrentUserId(userId);
+    const key = getUserStorageKey("companies", uid);
+    const stored = safeGet<CompanyProfile[] | null>(key, null);
+
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      // Filter out any legacy dummy companies if they exist
+      const cleaned = stored.filter((c) => c.id !== "comp-1" && c.id !== "comp-2");
+      return cleaned.length > 0 ? cleaned : stored;
     }
+
+    // If no companies saved for this specific user yet, initialize from their registered profile
+    if (uid) {
+      const regUser = findRegisteredUser(uid);
+      if (regUser) {
+        const cleanGstin = String(regUser.companyGstin || "").trim().toUpperCase();
+        const cleanName =
+          String(regUser.companyName || "").trim() || `${regUser.fullName}'s Business`;
+        const stateNum =
+          cleanGstin.length >= 2 ? parseInt(cleanGstin.substring(0, 2), 10) || 7 : 7;
+
+        const initialCompany: CompanyProfile = {
+          id: regUser.companyId || `comp-${uid}-${Date.now()}`,
+          legalName: cleanName,
+          tradeName: cleanName,
+          gstin: cleanGstin,
+          address1: "Main Business Office",
+          place: "City",
+          pincode: "110001",
+          stateCode: stateNum,
+          isDefault: true,
+        };
+        safeSet(key, [initialCompany]);
+        return [initialCompany];
+      }
+    }
+
+    return [];
   },
 
-  getCompanies: (): CompanyProfile[] => {
-    return safeGet<CompanyProfile[]>(
-      STORAGE_KEYS.COMPANIES,
-      DEFAULT_COMPANIES
-    );
-  },
-
-  saveCompanies: (companies: CompanyProfile[], syncRemote: boolean = true): void => {
-    safeSet(STORAGE_KEYS.COMPANIES, companies);
+  saveCompanies: (
+    companies: CompanyProfile[],
+    syncRemote: boolean = true,
+    userId?: string
+  ): void => {
+    const key = getUserStorageKey("companies", userId);
+    safeSet(key, companies);
     if (syncRemote) {
       companies.forEach((comp) => apiPost("/api/companies", comp));
     }
   },
 
-  getActiveCompanyId: (): string => {
-    const companies = StorageService.getCompanies();
-    const stored = safeGet<string>(STORAGE_KEYS.ACTIVE_COMPANY_ID, "");
+  getActiveCompanyId: (userId?: string): string => {
+    const uid = getCurrentUserId(userId);
+    const companies = StorageService.getCompanies(uid);
+    const key = getUserStorageKey("active_company_id", uid);
+    const stored = safeGet<string>(key, "");
     if (stored && companies.some((c) => c.id === stored)) return stored;
     const defaultComp = companies.find((c) => c.isDefault) || companies[0];
     return defaultComp ? defaultComp.id : "";
   },
 
-  setActiveCompanyId: (id: string): void => {
-    safeSet(STORAGE_KEYS.ACTIVE_COMPANY_ID, id);
+  setActiveCompanyId: (id: string, userId?: string): void => {
+    const key = getUserStorageKey("active_company_id", userId);
+    safeSet(key, id);
   },
 
-  getActiveCompany: (): CompanyProfile | undefined => {
-    const companies = StorageService.getCompanies();
-    const activeId = StorageService.getActiveCompanyId();
+  getActiveCompany: (userId?: string): CompanyProfile | undefined => {
+    const uid = getCurrentUserId(userId);
+    const companies = StorageService.getCompanies(uid);
+    const activeId = StorageService.getActiveCompanyId(uid);
     return companies.find((c) => c.id === activeId) || companies[0];
   },
 
-  getTransporters: (): TransporterMaster[] => {
-    return safeGet<TransporterMaster[]>(
-      STORAGE_KEYS.TRANSPORTERS,
-      DEFAULT_TRANSPORTERS
-    );
+  getTransporters: (userId?: string): TransporterMaster[] => {
+    const key = getUserStorageKey("transporters", userId);
+    return safeGet<TransporterMaster[]>(key, []);
   },
 
-  saveTransporters: (transporters: TransporterMaster[], syncRemote: boolean = true): void => {
-    safeSet(STORAGE_KEYS.TRANSPORTERS, transporters);
+  saveTransporters: (
+    transporters: TransporterMaster[],
+    syncRemote: boolean = true,
+    userId?: string
+  ): void => {
+    const key = getUserStorageKey("transporters", userId);
+    safeSet(key, transporters);
     if (syncRemote) {
       transporters.forEach((trans) => apiPost("/api/transporters", trans));
     }
   },
 
-  getItems: (): ItemMaster[] => {
-    return safeGet<ItemMaster[]>(STORAGE_KEYS.ITEMS, DEFAULT_ITEMS);
+  getItems: (userId?: string): ItemMaster[] => {
+    const key = getUserStorageKey("items", userId);
+    return safeGet<ItemMaster[]>(key, []);
   },
 
-  saveItems: (items: ItemMaster[], syncRemote: boolean = true): void => {
-    safeSet(STORAGE_KEYS.ITEMS, items);
+  saveItems: (
+    items: ItemMaster[],
+    syncRemote: boolean = true,
+    userId?: string
+  ): void => {
+    const key = getUserStorageKey("items", userId);
+    safeSet(key, items);
     if (syncRemote) {
       items.forEach((item) => apiPost("/api/items", item));
     }
   },
 
-  getDrafts: (): DraftBill[] => {
-    return safeGet<DraftBill[]>(STORAGE_KEYS.DRAFTS, []);
+  getDrafts: (userId?: string): DraftBill[] => {
+    const key = getUserStorageKey("drafts", userId);
+    return safeGet<DraftBill[]>(key, []);
   },
 
-  saveDrafts: (drafts: DraftBill[]): void => {
-    safeSet(STORAGE_KEYS.DRAFTS, drafts);
+  saveDrafts: (drafts: DraftBill[], userId?: string): void => {
+    const key = getUserStorageKey("drafts", userId);
+    safeSet(key, drafts);
   },
 
-  addDraft: (draft: DraftBill): void => {
-    const drafts = StorageService.getDrafts();
+  addDraft: (draft: DraftBill, userId?: string): void => {
+    const drafts = StorageService.getDrafts(userId);
     const existingIdx = drafts.findIndex((d) => d.id === draft.id);
     if (existingIdx >= 0) {
       drafts[existingIdx] = draft;
     } else {
       drafts.unshift(draft);
     }
-    safeSet(STORAGE_KEYS.DRAFTS, drafts);
+    const key = getUserStorageKey("drafts", userId);
+    safeSet(key, drafts);
     apiPost("/api/drafts", draft);
   },
 
-  deleteDraft: (id: string): void => {
-    const drafts = StorageService.getDrafts().filter((d) => d.id !== id);
-    safeSet(STORAGE_KEYS.DRAFTS, drafts);
+  deleteDraft: (id: string, userId?: string): void => {
+    const drafts = StorageService.getDrafts(userId).filter((d) => d.id !== id);
+    const key = getUserStorageKey("drafts", userId);
+    safeSet(key, drafts);
     apiDelete("/api/drafts", id);
   },
 
-  getHistory: (): ExportHistoryRecord[] => {
-    return safeGet<ExportHistoryRecord[]>(STORAGE_KEYS.HISTORY, []);
+  getHistory: (userId?: string): ExportHistoryRecord[] => {
+    const key = getUserStorageKey("history", userId);
+    return safeGet<ExportHistoryRecord[]>(key, []);
   },
 
-  addHistoryRecord: (record: ExportHistoryRecord): void => {
-    const history = StorageService.getHistory();
+  addHistoryRecord: (record: ExportHistoryRecord, userId?: string): void => {
+    const history = StorageService.getHistory(userId);
     history.unshift(record);
     if (history.length > 100) history.pop();
-    safeSet(STORAGE_KEYS.HISTORY, history);
+    const key = getUserStorageKey("history", userId);
+    safeSet(key, history);
     apiPost("/api/history", record);
   },
 
-  clearHistory: (): void => {
-    safeSet(STORAGE_KEYS.HISTORY, []);
+  clearHistory: (userId?: string): void => {
+    const key = getUserStorageKey("history", userId);
+    safeSet(key, []);
   },
 
-  getSettings: (): AppSettings => {
-    return safeGet<AppSettings>(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+  getSettings: (userId?: string): AppSettings => {
+    const key = getUserStorageKey("settings", userId);
+    return safeGet<AppSettings>(key, DEFAULT_SETTINGS);
   },
 
-  saveSettings: (settings: AppSettings): void => {
-    safeSet(STORAGE_KEYS.SETTINGS, settings);
+  saveSettings: (settings: AppSettings, userId?: string): void => {
+    const key = getUserStorageKey("settings", userId);
+    safeSet(key, settings);
   },
 };

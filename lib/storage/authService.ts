@@ -106,7 +106,7 @@ export const AuthService = {
 
     // If company exists in storage, switch to it
     if (user.companyId) {
-      StorageService.setActiveCompanyId(user.companyId);
+      StorageService.setActiveCompanyId(user.companyId, cleanUserId);
     }
 
     return { success: true, session };
@@ -154,12 +154,8 @@ export const AuthService = {
       isDefault: true,
     };
 
-    const companies = StorageService.getCompanies();
-    const cleanCompanies = companies.filter(
-      (c) => c.id !== "comp-1" && c.id !== "comp-2"
-    );
-    StorageService.saveCompanies([newCompany, ...cleanCompanies]);
-    StorageService.setActiveCompanyId(newCompId);
+    StorageService.saveCompanies([newCompany], false, cleanUserId);
+    StorageService.setActiveCompanyId(newCompId, cleanUserId);
 
     const colors = ["bg-indigo-600", "bg-emerald-600", "bg-purple-600", "bg-blue-600", "bg-teal-600"];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];

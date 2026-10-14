@@ -31,10 +31,7 @@ import {
   ValidationError,
 } from "../lib/types/ewayBill";
 import {
-  DEFAULT_COMPANIES,
-  DEFAULT_ITEMS,
   DEFAULT_SETTINGS,
-  DEFAULT_TRANSPORTERS,
   StorageService,
 } from "../lib/storage/store";
 import { downloadJsonFile } from "../lib/engine/jsonGenerator";
@@ -87,19 +84,28 @@ export default function Home() {
     filename: string;
   } | null>(null);
 
-  // Load from storage on mount
-  useEffect(() => {
-    const loadedCompanies = StorageService.getCompanies();
-    const loadedActiveId = StorageService.getActiveCompanyId();
-    const loadedTransporters = StorageService.getTransporters();
-    const loadedItems = StorageService.getItems();
-    const loadedDrafts = StorageService.getDrafts();
-    const loadedHistory = StorageService.getHistory();
-    const loadedSettings = StorageService.getSettings();
+  // Central function to load/refresh data for the active user session
+  const refreshUserData = (userSession: AuthSession | null) => {
+    if (!userSession) {
+      setCompanies([]);
+      setActiveCompanyId("");
+      setTransporters([]);
+      setItems([]);
+      setDrafts([]);
+      setHistory([]);
+      setBatchBills([]);
+      return;
+    }
 
-    // Load auth session
-    const currentSession = AuthService.getSession();
-    setSession(currentSession);
+    const uid = userSession.user.userId;
+    const loadedCompanies = StorageService.getCompanies(uid);
+    const loadedActiveId = StorageService.getActiveCompanyId(uid);
+    const loadedTransporters = StorageService.getTransporters(uid);
+    const loadedItems = StorageService.getItems(uid);
+    const loadedDrafts = StorageService.getDrafts(uid);
+    const loadedHistory = StorageService.getHistory(uid);
+    const loadedSettings = StorageService.getSettings(uid);
+
     setCompanies(loadedCompanies);
     setActiveCompanyId(loadedActiveId);
     setTransporters(loadedTransporters);
@@ -107,19 +113,14 @@ export default function Home() {
     setDrafts(loadedDrafts);
     setHistory(loadedHistory);
     setSettings(loadedSettings);
-    setMounted(true);
+  };
 
-    // Sync live from Neon PostgreSQL in the background
-    StorageService.syncFromNeon().then((success) => {
-      if (success) {
-        setCompanies(StorageService.getCompanies());
-        setActiveCompanyId(StorageService.getActiveCompanyId());
-        setTransporters(StorageService.getTransporters());
-        setItems(StorageService.getItems());
-        setDrafts(StorageService.getDrafts());
-        setHistory(StorageService.getHistory());
-      }
-    });
+  // Load from storage on mount
+  useEffect(() => {
+    const currentSession = AuthService.getSession();
+    setSession(currentSession);
+    refreshUserData(currentSession);
+    setMounted(true);
   }, []);
 
   const activeCompany =
@@ -128,20 +129,13 @@ export default function Home() {
   // Auth Handlers
   const handleLoginSuccess = (newSession: AuthSession) => {
     setSession(newSession);
-    const reloadedCompanies = StorageService.getCompanies();
-    setCompanies(reloadedCompanies);
-    if (newSession.user.companyId) {
-      setActiveCompanyId(newSession.user.companyId);
-      StorageService.setActiveCompanyId(newSession.user.companyId);
-    } else {
-      const activeId = StorageService.getActiveCompanyId();
-      setActiveCompanyId(activeId);
-    }
+    refreshUserData(newSession);
   };
 
   const handleLogout = () => {
     AuthService.logout();
     setSession(null);
+    refreshUserData(null);
   };
 
   const handleSwitchUser = (targetUserId: string) => {
@@ -157,11 +151,7 @@ export default function Home() {
     if (res.success && res.session) {
       setSession(res.session);
       setIsProfileModalOpen(false);
-      // Switch to company
-      if (target.companyId) {
-        setActiveCompanyId(target.companyId);
-        StorageService.setActiveCompanyId(target.companyId);
-      }
+      refreshUserData(res.session);
     }
   };
 
@@ -284,18 +274,18 @@ export default function Home() {
   };
 
   const handleResetFactoryData = () => {
-    StorageService.saveCompanies(DEFAULT_COMPANIES);
-    StorageService.setActiveCompanyId(DEFAULT_COMPANIES[0].id);
-    StorageService.saveTransporters(DEFAULT_TRANSPORTERS);
-    StorageService.saveItems(DEFAULT_ITEMS);
-    StorageService.saveDrafts([]);
-    StorageService.saveSettings(DEFAULT_SETTINGS);
+    if (!session) return;
+    const uid = session.user.userId;
+    StorageService.saveDrafts([], uid);
+    StorageService.saveTransporters([], false, uid);
+    StorageService.saveItems([], false, uid);
+    StorageService.clearHistory(uid);
+    StorageService.saveSettings(DEFAULT_SETTINGS, uid);
 
-    setCompanies(DEFAULT_COMPANIES);
-    setActiveCompanyId(DEFAULT_COMPANIES[0].id);
-    setTransporters(DEFAULT_TRANSPORTERS);
-    setItems(DEFAULT_ITEMS);
+    setTransporters([]);
+    setItems([]);
     setDrafts([]);
+    setHistory([]);
     setSettings(DEFAULT_SETTINGS);
   };
 
