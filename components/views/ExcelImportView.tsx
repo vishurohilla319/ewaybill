@@ -48,7 +48,8 @@ interface ExcelImportViewProps {
     filename: string,
     invoiceCount: number,
     totalVal: number,
-    errs: ValidationError[]
+    errs: ValidationError[],
+    bills?: EWayBillDocument[]
   ) => void;
 }
 
@@ -232,7 +233,8 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
       filename,
       parsedResult.bills.length,
       totalVal,
-      mappedErrs
+      mappedErrs,
+      parsedResult.bills
     );
   };
 

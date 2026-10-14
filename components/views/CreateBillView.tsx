@@ -62,7 +62,8 @@ interface CreateBillViewProps {
     filename: string,
     invoiceCount: number,
     totalVal: number,
-    errs: ValidationError[]
+    errs: ValidationError[],
+    bills?: EWayBillDocument[]
   ) => void;
   loadedDraft?: DraftBill | null;
   onClearLoadedDraft?: () => void;
@@ -358,7 +359,7 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
     const filename = generateExportFilename(`EWB_${bill.docNo.replace(/[^A-Za-z0-9]/g, "")}`);
     const errs = validateEWayBill(recalculated);
 
-    onPreviewJson(jsonStr, filename, 1, recalculated.totInvValue, errs);
+    onPreviewJson(jsonStr, filename, 1, recalculated.totInvValue, errs, [recalculated]);
   };
 
   const handleDirectDownloadAction = () => {

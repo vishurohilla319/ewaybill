@@ -606,7 +606,7 @@ export function parseTallyInvoiceGrid(
   if (items.length === 0) return null;
 
   return {
-    userGstin: defaultUserGstin || fromGstin,
+    userGstin: fromGstin || defaultUserGstin || "",
     supplyType: "O",
     subSupplyType: 1,
     docType: "INV",
@@ -883,7 +883,7 @@ export function parseExcelFile(
           existing.itemList.push(item);
         } else {
           const newBill: EWayBillDocument = {
-            userGstin: defaultUserGstin || fromGstin,
+            userGstin: fromGstin || defaultUserGstin || "",
             supplyType: (String(normalizedRow["supplytype"] || "O").toUpperCase() ===
             "I"
               ? "I"

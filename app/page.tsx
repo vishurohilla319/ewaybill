@@ -70,6 +70,7 @@ export default function Home() {
     invoiceCount: number;
     totalValue: number;
     errors: ValidationError[];
+    bills?: EWayBillDocument[];
   }>({
     isOpen: false,
     jsonContent: "",
@@ -77,6 +78,7 @@ export default function Home() {
     invoiceCount: 0,
     totalValue: 0,
     errors: [],
+    bills: [],
   });
 
   const [isUploadGuideOpen, setIsUploadGuideOpen] = useState(false);
@@ -359,7 +361,8 @@ export default function Home() {
     filename: string,
     invoiceCount: number,
     totalValue: number,
-    errors: ValidationError[]
+    errors: ValidationError[],
+    bills?: EWayBillDocument[]
   ) => {
     setPreviewModal({
       isOpen: true,
@@ -368,6 +371,7 @@ export default function Home() {
       invoiceCount,
       totalValue,
       errors,
+      bills,
     });
   };
 
@@ -546,6 +550,7 @@ export default function Home() {
         invoiceCount={previewModal.invoiceCount}
         totalValue={previewModal.totalValue}
         errors={previewModal.errors}
+        bills={previewModal.bills}
         onOpenUploadGuide={() => setIsUploadGuideOpen(true)}
       />
 

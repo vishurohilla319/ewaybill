@@ -42,7 +42,8 @@ interface BulkGenerationViewProps {
     filename: string,
     invoiceCount: number,
     totalVal: number,
-    errs: ValidationError[]
+    errs: ValidationError[],
+    bills?: EWayBillDocument[]
   ) => void;
 }
 
@@ -111,7 +112,7 @@ export const BulkGenerationView: React.FC<BulkGenerationViewProps> = ({
     const jsonStr = formatJsonPayload(payload);
     const filename = generateExportFilename(`EWB_BULK_BATCH_${batchBills.length}INV`);
 
-    onPreviewJson(jsonStr, filename, batchBills.length, totalInvoiceValue, allErrors);
+    onPreviewJson(jsonStr, filename, batchBills.length, totalInvoiceValue, allErrors, batchBills);
   };
 
   return (

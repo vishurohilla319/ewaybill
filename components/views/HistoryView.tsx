@@ -11,7 +11,11 @@ import {
   CheckCircle2,
   Calendar,
 } from "lucide-react";
-import { ExportHistoryRecord, ValidationError } from "../../lib/types/ewayBill";
+import {
+  EWayBillDocument,
+  ExportHistoryRecord,
+  ValidationError,
+} from "../../lib/types/ewayBill";
 import { downloadJsonFile } from "../../lib/engine/jsonGenerator";
 
 interface HistoryViewProps {
@@ -22,7 +26,8 @@ interface HistoryViewProps {
     filename: string,
     invoiceCount: number,
     totalVal: number,
-    errs: ValidationError[]
+    errs: ValidationError[],
+    bills?: EWayBillDocument[]
   ) => void;
 }
 
