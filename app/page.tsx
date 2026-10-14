@@ -467,6 +467,7 @@ export default function Home() {
           {currentTab === "import" && (
             <ExcelImportView
               activeCompany={activeCompany}
+              transporters={transporters}
               schemaVersion={settings.schemaVersion}
               onAddBillsToBatch={handleAddMultipleToBatch}
               onTabChange={setCurrentTab}
