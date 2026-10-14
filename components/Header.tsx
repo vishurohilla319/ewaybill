@@ -91,56 +91,53 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-10 shadow-sm relative">
-      <div className="flex flex-col">
-        <h1 className="text-lg font-bold text-slate-800 leading-tight">
+    <header className="h-14 md:h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-20 shadow-sm relative">
+      {/* Title & Subtitle */}
+      <div className="flex flex-col min-w-0 pr-2">
+        <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight truncate">
           {currentInfo.title}
         </h1>
-        <p className="text-xs text-slate-500 hidden sm:block">
+        <p className="text-[11px] sm:text-xs text-slate-500 hidden md:block truncate">
           {currentInfo.subtitle}
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* Right controls */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
         {/* Schema Badge */}
-        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-xs font-mono text-slate-600">
+        <div className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-600">
           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-          <span>NIC Bulk v{schemaVersion}</span>
-        </div>
-
-        {/* Portal Notice Pill */}
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
-          <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-          <span>Manual Portal Upload</span>
+          <span>v{schemaVersion}</span>
         </div>
 
         {/* Upload Guide Button */}
         <button
           onClick={onOpenInstructions}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
-          title="How to upload generated JSON to the official portal"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
+          title="Official portal upload walkthrough"
         >
           <HelpCircle className="w-3.5 h-3.5 text-indigo-600" />
           <span className="hidden sm:inline">Upload Guide</span>
         </button>
 
-        {/* Direct New Bill Button if not already on Create */}
+        {/* Create Bill Quick Button */}
         {currentTab !== "create" && (
           <button
             onClick={() => onTabChange("create")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-colors"
           >
             <FilePlus className="w-3.5 h-3.5" />
-            <span>Create Bill</span>
+            <span className="hidden sm:inline">Create Bill</span>
           </button>
         )}
 
-        {/* User Account Menu */}
+        {/* User Account Menu with Avatar */}
         {currentUser && (
-          <div className="relative pl-2 border-l border-slate-200">
+          <div className="relative pl-1 sm:pl-2 border-l border-slate-200">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none"
+              title="Click to view profile or sign out"
             >
               <div
                 className={`w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center ${
@@ -149,34 +146,38 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 {currentUser.fullName.charAt(0)}
               </div>
-              <div className="hidden md:flex flex-col text-left leading-tight">
-                <span className="text-xs font-bold text-slate-800 max-w-[120px] truncate">
+              <div className="hidden lg:flex flex-col text-left leading-tight">
+                <span className="text-xs font-bold text-slate-800 max-w-[110px] truncate">
                   {currentUser.fullName}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-slate-400 font-mono truncate">
                   {currentUser.userId}
                 </span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
 
+            {/* Dropdown Menu */}
             {userMenuOpen && (
               <>
                 <div
-                  className="fixed inset-0 z-20"
+                  className="fixed inset-0 z-40"
                   onClick={() => setUserMenuOpen(false)}
                 ></div>
-                <div className="absolute right-0 top-12 z-30 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-3.5 py-2 border-b border-slate-100">
-                    <div className="font-bold text-slate-800">
+                <div className="absolute right-0 top-full mt-2 z-50 w-60 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
+                    <div className="font-bold text-slate-800 truncate">
                       {currentUser.fullName}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-mono">
+                    <div className="text-[11px] text-slate-500 font-mono truncate">
                       {currentUser.email}
                     </div>
-                    <div className="mt-1">
+                    <div className="mt-1 flex items-center justify-between">
                       <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold">
                         {currentUser.role}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {currentUser.userId}
                       </span>
                     </div>
                   </div>
@@ -186,9 +187,9 @@ export const Header: React.FC<HeaderProps> = ({
                       setUserMenuOpen(false);
                       if (onOpenProfile) onOpenProfile();
                     }}
-                    className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors font-medium"
+                    className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
                   >
-                    <User className="w-3.5 h-3.5 text-slate-400" />
+                    <User className="w-4 h-4 text-slate-400" />
                     <span>My Profile & Settings</span>
                   </button>
 
@@ -197,9 +198,9 @@ export const Header: React.FC<HeaderProps> = ({
                       setUserMenuOpen(false);
                       if (onLogout) onLogout();
                     }}
-                    className="w-full px-3.5 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors font-medium border-t border-slate-100"
+                    className="w-full px-4 py-2.5 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors font-medium border-t border-slate-100"
                   >
-                    <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                    <LogOut className="w-4 h-4 text-rose-500" />
                     <span>Sign Out</span>
                   </button>
                 </div>

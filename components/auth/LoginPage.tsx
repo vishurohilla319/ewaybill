@@ -77,7 +77,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       } else {
         setErrorMessage(res.error || "Authentication failed.");
       }
-    }, 250);
+    }, 200);
   };
 
   const handleQuickLogin = (userIndex: number) => {
@@ -95,7 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       if (res.success && res.session) {
         onLoginSuccess(res.session);
       }
-    }, 200);
+    }, 150);
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -136,29 +136,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       } else {
         setErrorMessage(res.error || "Registration failed.");
       }
-    }, 300);
+    }, 250);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-100 select-none">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col justify-start sm:justify-center items-center py-6 px-4 sm:px-6 text-slate-100 overflow-y-auto">
       {/* Brand Header */}
-      <div className="text-center mb-6 max-w-md">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600 shadow-lg shadow-indigo-500/30 text-white mb-3">
-          <ShieldCheck className="w-7 h-7" />
+      <div className="text-center mb-4 max-w-md flex-shrink-0">
+        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600 shadow-md shadow-indigo-500/30 text-white mb-2">
+          <ShieldCheck className="w-6 h-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-          Fin Tax <span className="text-sm font-semibold px-2 py-0.5 rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">E-Way Bill</span>
+        <h1 className="text-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
+          Fin Tax <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">E-Way Bill</span>
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Indian GST Bulk JSON Generation & Accounting Portal
+        <p className="text-[11px] text-slate-400 mt-0.5">
+          Indian GST Bulk JSON Generation & Accounting Software
         </p>
-        <div className="mt-1 text-[11px] text-indigo-300 font-medium">
+        <div className="text-[10px] text-indigo-300 font-medium">
           Software Developed by <strong className="text-white">Vishu Rohilla</strong>
         </div>
       </div>
 
       {/* Main Auth Card */}
-      <div className="bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full overflow-hidden">
+      <div className="bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden flex-shrink-0 my-auto mb-6">
         {/* Navigation Tabs */}
         <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50 text-xs font-bold">
           <button
@@ -166,7 +166,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               setActiveTab("login");
               setErrorMessage(null);
             }}
-            className={`py-3.5 flex items-center justify-center gap-2 transition-all ${
+            className={`py-3 flex items-center justify-center gap-2 transition-all ${
               activeTab === "login"
                 ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
@@ -181,22 +181,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               setActiveTab("register");
               setErrorMessage(null);
             }}
-            className={`py-3.5 flex items-center justify-center gap-2 transition-all ${
+            className={`py-3 flex items-center justify-center gap-2 transition-all ${
               activeTab === "register"
                 ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <UserPlus className="w-4 h-4" />
-            <span>Create New User & Taxpayer</span>
+            <span>Create Account</span>
           </button>
         </div>
 
         {/* Card Body */}
-        <div className="p-6 sm:p-8">
+        <div className="p-5 sm:p-6">
           {/* Error Banner */}
           {errorMessage && (
-            <div className="mb-5 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in">
+            <div className="mb-4 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2 animate-in fade-in">
               <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
               <div className="leading-relaxed">{errorMessage}</div>
             </div>
@@ -204,8 +204,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           {activeTab === "login" ? (
             /* --- LOGIN FORM --- */
-            <div className="space-y-5">
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div className="space-y-4">
+              <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     User ID or Registered Email <span className="text-rose-500">*</span>
@@ -217,12 +217,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={userIdInput}
                       onChange={(e) => setUserIdInput(e.target.value)}
                       placeholder="e.g. vishu.rohilla or accounts_admin"
-                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium"
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 font-medium"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    Case-insensitive User ID or corporate email
-                  </span>
                 </div>
 
                 <div>
@@ -236,7 +233,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
                       placeholder="Enter account password"
-                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500"
                     />
                     <button
                       type="button"
@@ -251,51 +248,48 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
                     <>
-                      <span>Secure Sign In</span>
-                      <ArrowRight className="w-4 h-4" />
+                      <span>Sign In</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
                 </button>
               </form>
 
-              {/* Quick 1-Click Demo Accounts */}
-              <div className="pt-4 border-t border-slate-100">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center justify-between">
+              {/* Quick 1-Click Demo Profiles */}
+              <div className="pt-3 border-t border-slate-100">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
                   <span>Fast 1-Click Demo Profiles</span>
-                  <span className="text-indigo-600 font-medium">Ready to test</span>
+                  <span className="text-indigo-600 font-semibold">Click to login</span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {DEFAULT_USERS.map((usr, i) => (
                     <button
                       key={usr.id}
                       type="button"
                       onClick={() => handleQuickLogin(i)}
-                      className="w-full p-2.5 rounded-lg border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 text-left transition-all flex items-center justify-between group"
+                      className="p-2 rounded-lg border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 text-left transition-all group flex flex-col justify-between"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center ${usr.avatarColor || "bg-indigo-600"}`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className={`w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${usr.avatarColor || "bg-indigo-600"}`}>
                           {usr.fullName.charAt(0)}
                         </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">
-                            {usr.fullName} <span className="text-[10px] text-slate-400 font-normal">({usr.role})</span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono">
-                            User ID: <span className="font-semibold text-slate-700">{usr.userId}</span> • Password: <span className="font-semibold text-slate-700">Password@123</span>
-                          </div>
-                        </div>
+                        <span className="text-[11px] font-bold text-slate-800 group-hover:text-indigo-700 truncate">
+                          {usr.fullName.split(" ")[0]}
+                        </span>
                       </div>
-
-                      <span className="text-[11px] font-semibold text-indigo-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                        Login <ArrowRight className="w-3 h-3" />
-                      </span>
+                      <div className="text-[10px] text-slate-500 font-mono truncate">
+                        ID: {usr.userId}
+                      </div>
+                      <div className="text-[9px] text-indigo-600 font-semibold mt-1">
+                        {usr.role} ➔
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -303,11 +297,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
           ) : (
             /* --- REGISTRATION FORM --- */
-            <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Choose User ID (Username) <span className="text-rose-500">*</span>
+                    User ID (Username) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -318,12 +312,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     placeholder="e.g. vishu_accounts"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500 font-mono"
                   />
-                  <span className="text-[10px] text-slate-400">Unique login identifier</span>
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Your Full Name <span className="text-rose-500">*</span>
+                    Full Name <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -372,7 +365,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Operational Role
+                    Role
                   </label>
                   <select
                     value={registerData.role}
@@ -410,7 +403,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       }
                       setRegisterData({ ...registerData, ...update });
                     }}
-                    placeholder="15-digit GSTIN (e.g. 07AAACF...)"
+                    placeholder="15-digit GSTIN"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono uppercase focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -505,7 +498,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         {/* Card Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500">
+        <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-500">
           Fin Tax E-Way Bill System • Production Ready • Safe Local Data Isolation
         </div>
       </div>

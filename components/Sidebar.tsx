@@ -15,8 +15,6 @@ import {
   HelpCircle,
   ExternalLink,
   ShieldCheck,
-  LogOut,
-  User,
 } from "lucide-react";
 import { CompanyProfile } from "../lib/types/ewayBill";
 import { UserAccount } from "../lib/types/auth";
@@ -60,36 +58,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-200 flex flex-col h-screen flex-shrink-0 border-r border-slate-800 select-none">
+    <aside className="w-60 lg:w-64 bg-slate-900 text-slate-200 flex flex-col h-screen flex-shrink-0 border-r border-slate-800 select-none">
       {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800 flex flex-col gap-1">
+      <div className="p-3.5 border-b border-slate-800 flex flex-col gap-1 flex-shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 flex-shrink-0">
             <ShieldCheck className="w-5 h-5 text-indigo-100" />
           </div>
-          <div>
-            <div className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
-              Fin Tax <span className="text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">E-Way Bill</span>
+          <div className="min-w-0">
+            <div className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
+              <span>Fin Tax</span>
+              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded border border-indigo-500/30">
+                E-Way Bill
+              </span>
             </div>
-            <div className="text-[11px] text-slate-400 font-medium">
+            <div className="text-[10px] text-slate-400 font-medium truncate">
               NIC JSON Bulk Generator
             </div>
           </div>
         </div>
 
         {/* Developer Attribution */}
-        <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="mt-1 pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
           <span>Developed by</span>
-          <span className="font-semibold text-indigo-300 hover:text-indigo-200 transition-colors">
+          <span className="font-semibold text-indigo-300">
             Vishu Rohilla
           </span>
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-5">
+      {/* Navigation Links - Smooth scroll with clear space */}
+      <div className="flex-1 overflow-y-auto px-2.5 py-2.5 space-y-4">
         <div>
-          <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="px-2.5 mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             Transactions
           </div>
           <div className="space-y-0.5">
@@ -100,19 +101,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                     isActive
                       ? "bg-indigo-600 text-white shadow-sm"
                       : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                    <span>{item.label}</span>
+                  <div className="flex items-center gap-2 truncate">
+                    <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
+                    <span className="truncate">{item.label}</span>
                   </div>
                   {item.badge && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      className={`text-[9px] px-1 py-0.2 rounded flex-shrink-0 ${
                         isActive
                           ? "bg-indigo-500 text-white"
                           : "bg-slate-800 text-slate-400"
@@ -128,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div>
-          <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="px-2.5 mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             Masters & Settings
           </div>
           <div className="space-y-0.5">
@@ -139,14 +140,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                     isActive
                       ? "bg-indigo-600 text-white shadow-sm"
                       : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                  <span>{item.label}</span>
+                  <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <span className="truncate">{item.label}</span>
                 </button>
               );
             })}
@@ -154,47 +155,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Logged in User Bar in Sidebar */}
-      {currentUser && (
-        <div className="px-3 py-2.5 bg-slate-950/70 border-t border-slate-800/80 flex items-center justify-between">
-          <button
-            onClick={onOpenProfile}
-            className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity truncate max-w-[170px]"
-          >
-            <div className={`w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${currentUser.avatarColor || "bg-indigo-600"}`}>
-              {currentUser.fullName.charAt(0)}
-            </div>
-            <div className="truncate">
-              <div className="text-[11px] font-bold text-slate-200 truncate">
-                {currentUser.fullName}
-              </div>
-              <div className="text-[9px] font-mono text-slate-400 truncate">
-                {currentUser.userId} • {currentUser.role}
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={onLogout}
-            className="p-1 text-slate-400 hover:text-rose-400 rounded transition-colors"
-            title="Sign Out"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Active Company Selector in Footer */}
-      <div className="p-3 bg-slate-950 border-t border-slate-800">
-        <div className="text-[10px] text-slate-400 uppercase font-semibold mb-1 flex items-center justify-between">
+      {/* Active Company Footer */}
+      <div className="p-2.5 bg-slate-950 border-t border-slate-800 flex-shrink-0">
+        <div className="text-[9px] text-slate-400 uppercase font-semibold mb-1 flex items-center justify-between">
           <span>Active Company</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         </div>
         <select
           value={activeCompany?.id || ""}
           onChange={(e) => onSelectCompany(e.target.value)}
           aria-label="Active Company"
-          className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-slate-200 px-2 py-1.5 focus:outline-none focus:border-indigo-500 font-medium truncate"
+          className="w-full bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-200 px-2 py-1 focus:outline-none focus:border-indigo-500 font-medium truncate"
         >
           {companies.map((c) => (
             <option key={c.id} value={c.id}>
@@ -203,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </select>
         {activeCompany && (
-          <div className="mt-1.5 text-[10px] text-slate-400 font-mono truncate">
+          <div className="mt-1 text-[9px] text-slate-400 font-mono truncate">
             GSTIN: <span className="text-slate-300">{activeCompany.gstin}</span>
           </div>
         )}
@@ -212,10 +183,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           href="https://ewaybillgst.gov.in"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2.5 flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium transition-colors"
+          className="mt-2 flex items-center justify-center gap-1.5 w-full py-1 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium transition-colors"
         >
           <span>Official Portal</span>
-          <ExternalLink className="w-3 h-3 text-slate-400" />
+          <ExternalLink className="w-2.5 h-2.5 text-slate-400" />
         </a>
       </div>
     </aside>
