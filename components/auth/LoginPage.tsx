@@ -28,9 +28,7 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const existingUsers = AuthService.getUsers();
-  const [activeTab, setActiveTab] = useState<"login" | "register">(
-    existingUsers.length === 0 ? "register" : "login"
-  );
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -86,6 +84,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     } catch (err: any) {
       setLoading(false);
       setErrorMessage(err?.message || "Login failed. Please try again.");
+    }
+  };
+
+  const handleLoginKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleLoginSubmit(e as any);
+    }
+  };
+
+  const handleRegisterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleRegisterSubmit(e as any);
     }
   };
 
@@ -146,56 +158,57 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col justify-start sm:justify-center items-center py-6 px-4 sm:px-6 text-slate-100 overflow-y-auto">
-      {/* Brand Header */}
-      <div className="text-center mb-4 max-w-md flex-shrink-0">
-        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600 shadow-md shadow-indigo-500/30 text-white mb-2">
-          <ShieldCheck className="w-6 h-6" />
+    <div className="min-h-screen w-full bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center justify-start py-8 px-4 sm:px-6 text-slate-100 overflow-y-auto">
+      <div className={`w-full ${activeTab === "register" ? "max-w-xl" : "max-w-md"} my-auto flex flex-col items-center`}>
+        {/* Brand Header */}
+        <div className="text-center mb-5 max-w-md flex-shrink-0">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-indigo-600 shadow-lg shadow-indigo-500/30 text-white mb-2.5">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
+            E-Way Bill Generator
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Indian GST Bulk JSON Generation & Verification Portal
+          </p>
         </div>
-        <h1 className="text-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-          E-Way Bill Generator
-        </h1>
-        <p className="text-[11px] text-slate-400 mt-0.5">
-          Indian GST Bulk JSON Generation & Verification Portal
-        </p>
-      </div>
 
-      {/* Main Auth Card */}
-      <div className="bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden flex-shrink-0 my-auto mb-6">
-        {/* Navigation Tabs */}
-        <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50 text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("register");
-              setErrorMessage(null);
-            }}
-            className={`py-3 flex items-center justify-center gap-2 transition-all ${
-              activeTab === "register"
-                ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Create User ID</span>
-          </button>
+        {/* Main Auth Card */}
+        <div className="bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 w-full overflow-hidden flex-shrink-0 mb-4 transition-all duration-200">
+          {/* Navigation Tabs */}
+          <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-100/70 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("login");
+                setErrorMessage(null);
+              }}
+              className={`py-3.5 flex items-center justify-center gap-2 transition-all ${
+                activeTab === "login"
+                  ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("login");
-              setErrorMessage(null);
-            }}
-            className={`py-3 flex items-center justify-center gap-2 transition-all ${
-              activeTab === "login"
-                ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <LogIn className="w-4 h-4" />
-            <span>Sign In</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("register");
+                setErrorMessage(null);
+              }}
+              className={`py-3.5 flex items-center justify-center gap-2 transition-all ${
+                activeTab === "register"
+                  ? "bg-white text-indigo-600 border-b-2 border-indigo-600 shadow-sm font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Create User ID</span>
+            </button>
+          </div>
 
         {/* Card Body */}
         <div className="p-5 sm:p-6">
@@ -210,12 +223,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {activeTab === "login" ? (
             /* --- LOGIN FORM --- */
             <div className="space-y-4">
-              <div className="text-center pb-2">
+              <div className="text-center pb-1">
                 <h2 className="text-sm font-bold text-slate-800">
                   Sign In with Your User ID
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Enter your registered User ID or email address to access your bills.
+                  Enter your registered User ID or email to access your bills.
                 </p>
               </div>
 
@@ -225,17 +238,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     User ID or Email <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
                     <input
                       id="login-username"
                       name="username"
                       type="text"
                       autoComplete="username"
+                      autoFocus
                       required
                       value={userIdInput}
                       onChange={(e) => setUserIdInput(e.target.value)}
-                      placeholder="Enter your User ID or Email"
-                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 font-medium"
+                      onKeyDown={handleLoginKeyDown}
+                      placeholder="e.g. vishu.rohilla or user ID"
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 font-medium text-slate-900"
                     />
                   </div>
                 </div>
@@ -245,7 +260,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     Password <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
                     <input
                       id="login-password"
                       name="password"
@@ -254,11 +269,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       required
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
+                      onKeyDown={handleLoginKeyDown}
                       placeholder="Enter account password"
-                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-slate-900"
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
                     >
@@ -270,7 +287,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 mt-1"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -284,8 +301,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </form>
 
               {/* Switch to Register link */}
-              <div className="pt-4 border-t border-slate-100 text-center">
-                <p className="text-xs text-slate-500 mb-2">
+              <div className="pt-3 border-t border-slate-100 text-center">
+                <p className="text-xs text-slate-500 mb-1.5">
                   Don't have a User ID yet?
                 </p>
                 <button
@@ -294,16 +311,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     setActiveTab("register");
                     setErrorMessage(null);
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-sm"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>Create New User ID (Sign Up)</span>
+                  <span>Create New User ID</span>
                 </button>
               </div>
             </div>
           ) : (
             /* --- REGISTRATION FORM (CREATE USER ID) --- */
-            <form onSubmit={handleRegisterSubmit} method="POST" action="#" className="space-y-3.5 text-xs">
+            <form onSubmit={handleRegisterSubmit} method="POST" action="#" className="space-y-3 text-xs">
               <div className="text-center pb-1">
                 <h2 className="text-sm font-bold text-slate-800">
                   Create Your User Account
@@ -313,7 +330,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label htmlFor="reg-userId" className="block font-semibold text-slate-700 mb-1">
                     Choose User ID <span className="text-rose-500">*</span>
@@ -331,6 +348,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         userId: e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""),
                       })
                     }
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="e.g. nh_agencies or mohit"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono font-bold text-indigo-700 focus:outline-none focus:border-indigo-500"
                   />
@@ -353,13 +371,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, password: e.target.value })
                     }
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="Min 6 characters"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label htmlFor="reg-fullname" className="block font-semibold text-slate-700 mb-1">
                     Your Full Name <span className="text-rose-500">*</span>
@@ -374,6 +393,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, fullName: e.target.value })
                     }
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="e.g. Mohit Jain"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
                   />
@@ -393,13 +413,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, email: e.target.value })
                     }
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="e.g. contact@domain.com"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label htmlFor="reg-company" className="block font-semibold text-slate-700 mb-1">
                     Company / Firm Name
@@ -412,6 +433,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, companyName: e.target.value })
                     }
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="e.g. N.H AGENCIES"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500 font-medium"
                   />
@@ -438,13 +460,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       }
                       setRegisterData({ ...registerData, ...update });
                     }}
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="e.g. 09APHPN0801J1ZY"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono uppercase focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label htmlFor="reg-state" className="block font-semibold text-slate-700 mb-1">
                     State
@@ -459,7 +482,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         stateCode: Number(e.target.value),
                       })
                     }
-                    className="w-full px-2 py-1.5 border border-slate-300 rounded bg-white focus:outline-none"
+                    className="w-full px-2 py-1.5 border border-slate-300 rounded bg-white focus:outline-none text-xs"
                   >
                     {STATE_OPTIONS.map((st) => (
                       <option key={st.code} value={st.code}>
@@ -481,6 +504,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, place: e.target.value })
                     }
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="e.g. Modinagar"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
                   />
@@ -499,6 +523,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) =>
                       setRegisterData({ ...registerData, pincode: e.target.value })
                     }
+                    onKeyDown={handleRegisterKeyDown}
                     placeholder="e.g. 201204"
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded font-mono focus:outline-none focus:border-indigo-500"
                   />
@@ -508,7 +533,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 mt-2"
+                className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -521,8 +546,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </button>
 
               {/* Switch to Login link */}
-              <div className="pt-3 border-t border-slate-100 text-center">
-                <p className="text-xs text-slate-500 mb-1.5">
+              <div className="pt-2.5 border-t border-slate-100 text-center">
+                <p className="text-xs text-slate-500 mb-1">
                   Already created a User ID?
                 </p>
                 <button
@@ -547,5 +572,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

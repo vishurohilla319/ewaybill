@@ -67,9 +67,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="min-w-0">
             <div className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
-              <span>Fin Tax</span>
+              <span>E-Way Bill</span>
               <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded border border-indigo-500/30">
-                E-Way Bill
+                Portal
               </span>
             </div>
             <div className="text-[10px] text-slate-400 font-medium truncate">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fin Tax E-Way Bill Generator | Developed by Vishu Rohilla",
+  title: "E-Way Bill Generator | Bulk JSON & Verification Portal",
   description:
     "Professional Indian GST E-Way Bill JSON Generator software for official NIC portal bulk generation.",
 };
