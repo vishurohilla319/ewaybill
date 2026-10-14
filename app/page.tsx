@@ -138,12 +138,12 @@ export default function Home() {
     refreshUserData(null);
   };
 
-  const handleSwitchUser = (targetUserId: string) => {
+  const handleSwitchUser = async (targetUserId: string) => {
     const allUsers = AuthService.getUsers();
     const target = allUsers.find((u) => u.userId === targetUserId);
     if (!target) return;
 
-    const res = AuthService.login({
+    const res = await AuthService.login({
       userId: target.userId,
       password: target.password,
     });

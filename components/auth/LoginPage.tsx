@@ -54,11 +54,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     place: "",
   });
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!userIdInput.trim()) {
+    const cleanInput = userIdInput.trim();
+    if (!cleanInput) {
       setErrorMessage("Please enter your User ID or Email.");
       return;
     }
@@ -68,9 +69,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const res = AuthService.login({
-        userId: userIdInput,
+    try {
+      const res = await AuthService.login({
+        userId: cleanInput,
         password: passwordInput,
       });
 
@@ -78,12 +79,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       if (res.success && res.session) {
         onLoginSuccess(res.session);
       } else {
-        setErrorMessage(res.error || "Authentication failed. Please check your User ID and password.");
+        setErrorMessage(
+          res.error || "Authentication failed. Please check your User ID and password."
+        );
       }
-    }, 200);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err?.message || "Login failed. Please try again.");
+    }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -122,8 +128,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const res = AuthService.register({
+    try {
+      const res = await AuthService.register({
         ...registerData,
         userId: cleanUserId,
       });
@@ -133,7 +139,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       } else {
         setErrorMessage(res.error || "Registration failed. Please try a different User ID.");
       }
-    }, 250);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err?.message || "Registration failed. Please try again.");
+    }
   };
 
   return (
@@ -156,6 +165,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         {/* Navigation Tabs */}
         <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50 text-xs font-bold">
           <button
+            type="button"
             onClick={() => {
               setActiveTab("register");
               setErrorMessage(null);
@@ -171,6 +181,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveTab("login");
               setErrorMessage(null);
@@ -208,15 +219,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </p>
               </div>
 
-              <form onSubmit={handleLoginSubmit} className="space-y-3.5">
+              <form onSubmit={handleLoginSubmit} method="POST" action="#" className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="login-username" className="block text-xs font-semibold text-slate-700 mb-1">
                     User ID or Email <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
+                      id="login-username"
+                      name="username"
                       type="text"
+                      autoComplete="username"
+                      required
                       value={userIdInput}
                       onChange={(e) => setUserIdInput(e.target.value)}
                       placeholder="Enter your User ID or Email"
@@ -226,13 +241,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700 mb-1">
                     Password <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
+                      id="login-password"
+                      name="password"
                       type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      required
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
                       placeholder="Enter account password"
@@ -284,7 +303,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
           ) : (
             /* --- REGISTRATION FORM (CREATE USER ID) --- */
-            <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-xs">
+            <form onSubmit={handleRegisterSubmit} method="POST" action="#" className="space-y-3.5 text-xs">
               <div className="text-center pb-1">
                 <h2 className="text-sm font-bold text-slate-800">
                   Create Your User Account
@@ -296,11 +315,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-userId" className="block font-semibold text-slate-700 mb-1">
                     Choose User ID <span className="text-rose-500">*</span>
                   </label>
                   <input
+                    id="reg-userId"
+                    name="username"
                     type="text"
+                    autoComplete="username"
+                    required
                     value={registerData.userId}
                     onChange={(e) =>
                       setRegisterData({
@@ -317,11 +340,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-password" className="block font-semibold text-slate-700 mb-1">
                     Set Password <span className="text-rose-500">*</span>
                   </label>
                   <input
+                    id="reg-password"
+                    name="new-password"
                     type="password"
+                    autoComplete="new-password"
+                    required
                     value={registerData.password}
                     onChange={(e) =>
                       setRegisterData({ ...registerData, password: e.target.value })
@@ -334,11 +361,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-fullname" className="block font-semibold text-slate-700 mb-1">
                     Your Full Name <span className="text-rose-500">*</span>
                   </label>
                   <input
+                    id="reg-fullname"
+                    name="name"
                     type="text"
+                    autoComplete="name"
+                    required
                     value={registerData.fullName}
                     onChange={(e) =>
                       setRegisterData({ ...registerData, fullName: e.target.value })
@@ -349,11 +380,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-email" className="block font-semibold text-slate-700 mb-1">
                     Email Address <span className="text-rose-500">*</span>
                   </label>
                   <input
+                    id="reg-email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
+                    required
                     value={registerData.email}
                     onChange={(e) =>
                       setRegisterData({ ...registerData, email: e.target.value })
@@ -366,10 +401,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-company" className="block font-semibold text-slate-700 mb-1">
                     Company / Firm Name
                   </label>
                   <input
+                    id="reg-company"
+                    name="organization"
                     type="text"
                     value={registerData.companyName}
                     onChange={(e) =>
@@ -381,10 +418,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-gstin" className="block font-semibold text-slate-700 mb-1">
                     Registered GSTIN (15 Digits)
                   </label>
                   <input
+                    id="reg-gstin"
+                    name="gstin"
                     type="text"
                     maxLength={15}
                     value={registerData.companyGstin}
@@ -407,10 +446,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-state" className="block font-semibold text-slate-700 mb-1">
                     State
                   </label>
                   <select
+                    id="reg-state"
+                    name="state"
                     value={registerData.stateCode}
                     onChange={(e) =>
                       setRegisterData({
@@ -429,10 +470,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-place" className="block font-semibold text-slate-700 mb-1">
                     City / Place
                   </label>
                   <input
+                    id="reg-place"
+                    name="address-level2"
                     type="text"
                     value={registerData.place}
                     onChange={(e) =>
@@ -444,10 +487,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
+                  <label htmlFor="reg-pincode" className="block font-semibold text-slate-700 mb-1">
                     PIN Code
                   </label>
                   <input
+                    id="reg-pincode"
+                    name="postal-code"
                     type="text"
                     maxLength={6}
                     value={registerData.pincode}
