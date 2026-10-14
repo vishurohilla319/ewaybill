@@ -476,21 +476,67 @@ export function parseTallyInvoiceGrid(
   }
 
   const items: EWayBillItem[] = [];
-  let otherValue = 0;
+  let declaredRoundOff = 0;
+  let declaredIgst = 0;
+  let declaredCgst = 0;
+  let declaredSgst = 0;
+  let declaredTotalInv = 0;
 
   for (let r = itemHeaderRow + 1; r < grid.length; r++) {
     const row = grid[r];
     const col0 = String(row[0] || "").trim();
     const fullRowStr = row.map((x) => String(x || "").trim()).join(" ");
+    const lowerRow = fullRowStr.toLowerCase();
+
+    // Check for end of items table (Total row or Amount Chargeable or HSN/SAC table)
+    const isTotalRow = row.some((c: any) => {
+      const s = String(c || "").trim().toLowerCase();
+      return s === "total";
+    });
 
     if (
-      /^total/i.test(col0) ||
-      fullRowStr.toLowerCase().includes("amount chargeable") ||
-      fullRowStr.toLowerCase().includes("hsn/sac")
+      isTotalRow ||
+      lowerRow.includes("amount chargeable") ||
+      lowerRow.includes("hsn/sac")
     ) {
+      const amtMatch = row[amountCol] || row[row.length - 1];
+      if (amtMatch && !isNaN(Number(amtMatch)) && Number(amtMatch) > 0) {
+        declaredTotalInv = Number(amtMatch);
+      }
       break;
     }
 
+    // Check if it's a Round Off row
+    if (lowerRow.includes("round off") || lowerRow.includes("roundoff")) {
+      const amt =
+        amountCol !== -1 ? Number(row[amountCol]) : Number(row[row.length - 1]);
+      if (!isNaN(amt)) {
+        declaredRoundOff = amt;
+      }
+      continue;
+    }
+
+    // Check if it's a Tax Ledger row (IGST, CGST, SGST)
+    if (lowerRow.includes("igst")) {
+      const amt =
+        amountCol !== -1 ? Number(row[amountCol]) : Number(row[row.length - 1]);
+      if (!isNaN(amt) && amt > 0) declaredIgst = amt;
+      continue;
+    }
+    if (lowerRow.includes("cgst")) {
+      const amt =
+        amountCol !== -1 ? Number(row[amountCol]) : Number(row[row.length - 1]);
+      if (!isNaN(amt) && amt > 0) declaredCgst = amt;
+      continue;
+    }
+    if (lowerRow.includes("sgst")) {
+      const amt =
+        amountCol !== -1 ? Number(row[amountCol]) : Number(row[row.length - 1]);
+      if (!isNaN(amt) && amt > 0) declaredSgst = amt;
+      continue;
+    }
+
+    // Regular item with serial number in col 0
     if (/^\d+$/.test(col0)) {
       const desc = descCol !== -1 ? String(row[descCol] || "").trim() : "";
       const hsn = hsnCol !== -1 ? String(row[hsnCol] || "").trim() : "";
@@ -515,12 +561,45 @@ export function parseTallyInvoiceGrid(
         igstRate: gstRate,
         cessRate: 0,
       });
-    } else if (
-      fullRowStr.toLowerCase().includes("freight") ||
-      fullRowStr.toLowerCase().includes("cartage")
-    ) {
-      const amt = amountCol !== -1 ? Number(row[amountCol]) || 0 : 0;
-      otherValue += amt;
+      continue;
+    }
+
+    // Additional taxable ledger / service row (e.g. FREIGHT & CARTAGE (GST))
+    let itemDesc = "";
+    let itemHsn = "";
+    let itemAmt = amountCol !== -1 ? Number(row[amountCol]) || 0 : 0;
+
+    for (let c = 0; c < row.length; c++) {
+      const cellStr = String(row[c] || "").trim();
+      if (!cellStr) continue;
+
+      if (/^\d{4,8}$/.test(cellStr)) {
+        itemHsn = cellStr;
+      } else if (
+        c !== amountCol &&
+        isNaN(Number(cellStr)) &&
+        cellStr.length > 2
+      ) {
+        if (!itemDesc) itemDesc = cellStr;
+      }
+    }
+
+    if (itemAmt > 0 && (itemDesc || itemHsn)) {
+      const gstRate = (itemHsn ? hsnRates.get(itemHsn) : undefined) || 18;
+
+      items.push({
+        itemNo: items.length + 1,
+        productName: itemDesc || "Freight / Additional Charges",
+        productDesc: itemDesc || "Freight / Additional Charges",
+        hsnCode: itemHsn || "996511",
+        quantity: 1,
+        qtyUnit: "OTH",
+        taxableAmount: itemAmt,
+        cgstRate: 0,
+        sgstRate: 0,
+        igstRate: gstRate,
+        cessRate: 0,
+      });
     }
   }
 
@@ -559,8 +638,8 @@ export function parseTallyInvoiceGrid(
     igstValue: 0,
     cessValue: 0,
     cessNonAdvolValue: 0,
-    otherValue,
-    totInvValue: 0,
+    otherValue: declaredRoundOff,
+    totInvValue: declaredTotalInv || 0,
 
     transDistance: 100,
     transMode: "1",

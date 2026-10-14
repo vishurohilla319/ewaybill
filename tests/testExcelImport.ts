@@ -93,21 +93,25 @@ const tallyResult = parseExcelFile(tallyArray, {
 console.log(` - Total rows: ${tallyResult.totalRows}`);
 console.log(` - Total invoices: ${tallyResult.totalInvoices}`);
 console.log(` - Grouped Doc No: ${tallyResult.bills[0]?.docNo}`);
-console.log(` - Items count: ${tallyResult.bills[0]?.itemList.length}`);
-console.log(` - Total taxable: ₹${tallyResult.bills[0]?.totalValue}`);
-console.log(` - Total IGST: ₹${tallyResult.bills[0]?.igstValue}`);
-console.log(` - Total Invoice Value: ₹${tallyResult.bills[0]?.totInvValue}`);
+console.log(` - Items count: ${tallyResult.bills[0]?.itemList.length} (Expected: 7)`);
+console.log(` - Total taxable: ₹${tallyResult.bills[0]?.totalValue} (Expected: 45225.45)`);
+console.log(` - Total IGST: ₹${tallyResult.bills[0]?.igstValue} (Expected: 8140.59)`);
+console.log(` - Round off (otherValue): ₹${tallyResult.bills[0]?.otherValue} (Expected: -0.04)`);
+console.log(` - Total Invoice Value: ₹${tallyResult.bills[0]?.totInvValue} (Expected: 53366)`);
 
 if (
   tallyResult.totalInvoices === 1 &&
   tallyResult.bills[0]?.docNo === "NH/26-27/0260" &&
-  tallyResult.bills[0]?.itemList.length === 6 &&
+  tallyResult.bills[0]?.itemList.length === 7 &&
+  tallyResult.bills[0]?.totalValue === 45225.45 &&
+  tallyResult.bills[0]?.igstValue === 8140.59 &&
+  tallyResult.bills[0]?.totInvValue === 53366 &&
   tallyResult.bills[0]?.fromGstin === "09APHPN0801J1ZY" &&
   tallyResult.bills[0]?.toGstin === "05AFWPC3163R2ZT"
 ) {
-  console.log("✔ PASS: User's Tally Tax Invoice parsed cleanly and accurately!\n");
+  console.log("✔ PASS: Exact matches to the rupee: Taxable=₹45,225.45, IGST=₹8,140.59, Total=₹53,366.00!\n");
 } else {
-  console.error("❌ FAIL: Tally parsing mismatch", tallyResult);
+  console.error("❌ FAIL: Tally parsing mismatch", tallyResult.bills[0]);
   process.exit(1);
 }
 
