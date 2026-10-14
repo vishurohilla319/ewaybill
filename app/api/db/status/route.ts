@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db/neon";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   if (!sql) {
     return NextResponse.json(

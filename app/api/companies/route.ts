@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db/neon";
 import { CompanyProfile } from "@/lib/types/ewayBill";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   if (!sql) {
     return NextResponse.json({ error: "Database not connected" }, { status: 503 });

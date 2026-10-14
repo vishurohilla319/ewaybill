@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db/neon";
 import { LoginCredentials, RegisterPayload } from "@/lib/types/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   if (!sql) {
     return NextResponse.json({ error: "Database not connected" }, { status: 503 });
