@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FilePlus,
   Plus,
@@ -163,13 +163,11 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
     return getInitialBill(activeCompany);
   });
 
-  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  // Recalculate and validate whenever relevant fields change
+  // Recalculate tax figures whenever line items, states, or charges change
   useEffect(() => {
     const recalculated = recalculateBill(bill, true);
-    // Only update if numbers changed to prevent infinite loop
     if (
       recalculated.totalValue !== bill.totalValue ||
       recalculated.totInvValue !== bill.totInvValue ||
@@ -178,8 +176,6 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
     ) {
       setBill(recalculated);
     }
-    const errors = validateEWayBill(recalculated);
-    setValidationErrors(errors);
   }, [
     bill.itemList,
     bill.fromStateCode,
@@ -190,6 +186,11 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
     bill.subSupplyType,
     bill.otherValue,
   ]);
+
+  // Real-time validation reacting immediately to ANY change in bill fields
+  const validationErrors = useMemo(() => {
+    return validateEWayBill(bill);
+  }, [bill]);
 
   // When active company changes, offer to sync
   const handleSyncCompany = () => {
@@ -324,8 +325,8 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
     if (!found) return;
     setBill((prev) => ({
       ...prev,
-      transporterId: found.transporterId,
-      transporterName: found.name,
+      transporterId: (found.transporterId || "").trim().toUpperCase(),
+      transporterName: (found.name || "").trim(),
     }));
   };
 
@@ -1174,7 +1175,7 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
                 type="text"
                 maxLength={15}
                 value={bill.transporterId || ""}
-                onChange={(e) => handleUpdateField("transporterId", e.target.value.toUpperCase())}
+                onChange={(e) => handleUpdateField("transporterId", e.target.value.toUpperCase().replace(/\s/g, ""))}
                 placeholder="15-digit GSTIN / TRANSIN"
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-slate-800 font-mono uppercase focus:outline-none focus:border-indigo-500"
               />

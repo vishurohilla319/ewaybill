@@ -15,6 +15,13 @@ export function isValidGstin(gstin: string): boolean {
   return GSTIN_REGEX.test(upper);
 }
 
+export function isValidTransporterId(transId: string): boolean {
+  if (!transId) return false;
+  const clean = transId.trim().toUpperCase();
+  // Validates standard 15-digit GSTIN or TRANSIN (e.g. 07AAAAA0000A1Z5 or common enrollment starting with 88)
+  return /^[0-9]{2}[0-9A-Z]{13}$/.test(clean);
+}
+
 export function isValidVehicleNo(vehicleNo: string): boolean {
   if (!vehicleNo) return false;
   // Strip spaces, dashes
@@ -215,13 +222,17 @@ export function validateEWayBill(
 
   // 8. Transportation Mode & Part-B
   const mode = bill.transMode ? String(bill.transMode).trim() : "1";
-  const hasTransporter =
-    bill.transporterId && bill.transporterId.trim().length > 0;
-  const hasVehicle = bill.vehicleNo && bill.vehicleNo.trim().length > 0;
+  const cleanTransId = (bill.transporterId || "").trim().toUpperCase();
+  const cleanVehNo = (bill.vehicleNo || "").trim().toUpperCase().replace(/[^A-Za-z0-9]/g, "");
+  const hasTransporter = cleanTransId.length > 0;
+  const hasVehicle = cleanVehNo.length > 0;
 
   if (hasTransporter) {
-    if (!isValidGstin(bill.transporterId!)) {
-      addError("transporterId", "Transporter ID must be a valid 15-character GSTIN/TRANSIN.");
+    if (!isValidTransporterId(cleanTransId)) {
+      addError(
+        "transporterId",
+        "Transporter ID must be a valid 15-character GSTIN or TRANSIN (e.g. 07AAAAA0000A1Z5 or common enrollment starting with 88)."
+      );
     }
   }
 
@@ -234,7 +245,7 @@ export function validateEWayBill(
       );
     }
     if (hasVehicle) {
-      if (!isValidVehicleNo(bill.vehicleNo!)) {
+      if (!isValidVehicleNo(cleanVehNo)) {
         addError(
           "vehicleNo",
           `Invalid vehicle registration number format: '${bill.vehicleNo}'. Format example: DL01AB1234 or MH12DE1428.`
