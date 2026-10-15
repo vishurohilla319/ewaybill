@@ -446,6 +446,7 @@ export default function Home() {
               onTabChange={setCurrentTab}
               activeCompany={activeCompany}
               schemaVersion={settings.schemaVersion}
+              onAddMultipleToBatch={handleAddMultipleToBatch}
               onExportSuccess={handleExportSuccess}
               onPreviewJson={handleOpenPreview}
             />

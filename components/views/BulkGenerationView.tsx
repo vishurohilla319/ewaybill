@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Files,
   Plus,
@@ -15,6 +15,7 @@ import {
   FileJson,
   Eye,
   RefreshCw,
+  UploadCloud,
 } from "lucide-react";
 import {
   CompanyProfile,
@@ -22,6 +23,7 @@ import {
   ValidationError,
 } from "../../lib/types/ewayBill";
 import { validateBulkDocuments, validateEWayBill } from "../../lib/engine/validator";
+import { parseExcelFile } from "../../lib/engine/excelParser";
 import {
   formatJsonPayload,
   generateBulkEWayBillJson,
@@ -36,6 +38,7 @@ interface BulkGenerationViewProps {
   onTabChange: (tab: string) => void;
   activeCompany?: CompanyProfile;
   schemaVersion: string;
+  onAddMultipleToBatch?: (bills: EWayBillDocument[]) => void;
   onExportSuccess: (filename: string, jsonPayload: string, bills: EWayBillDocument[]) => void;
   onPreviewJson: (
     jsonStr: string,
@@ -55,6 +58,7 @@ export const BulkGenerationView: React.FC<BulkGenerationViewProps> = ({
   onTabChange,
   activeCompany,
   schemaVersion,
+  onAddMultipleToBatch,
   onExportSuccess,
   onPreviewJson,
 }) => {
@@ -62,6 +66,46 @@ export const BulkGenerationView: React.FC<BulkGenerationViewProps> = ({
     bill: EWayBillDocument;
     errors: ValidationError[];
   } | null>(null);
+  const [isImportingExcel, setIsImportingExcel] = useState(false);
+  const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
+
+  const handleProcessExcelFiles = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter((f) =>
+      /\.(xlsx|xls|csv)$/i.test(f.name)
+    );
+    if (fileArray.length === 0) {
+      alert("Please select valid Excel (.xlsx, .xls) or CSV files.");
+      return;
+    }
+
+    setIsImportingExcel(true);
+    try {
+      const allNewBills: EWayBillDocument[] = [];
+      for (const file of fileArray) {
+        const buffer = await file.arrayBuffer();
+        const res = parseExcelFile(buffer, activeCompany);
+        allNewBills.push(...res.bills);
+      }
+
+      if (allNewBills.length > 0) {
+        if (onAddMultipleToBatch) {
+          onAddMultipleToBatch(allNewBills);
+        }
+        setImportSuccessMsg(
+          `Successfully loaded ${allNewBills.length} invoice(s) from ${fileArray.length} Excel file(s) into queue!`
+        );
+        setTimeout(() => setImportSuccessMsg(null), 4000);
+      } else {
+        alert("No valid invoices found in the selected Excel file(s).");
+      }
+    } catch (err: any) {
+      alert(`Error reading Excel file(s): ${err?.message || err}`);
+    } finally {
+      setIsImportingExcel(false);
+      if (excelInputRef.current) excelInputRef.current.value = "";
+    }
+  };
 
   const { validBills, invalidBills, allErrors } = validateBulkDocuments(batchBills);
 
@@ -139,6 +183,15 @@ export const BulkGenerationView: React.FC<BulkGenerationViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            ref={excelInputRef}
+            onChange={(e) => e.target.files && handleProcessExcelFiles(e.target.files)}
+            accept=".xlsx,.xls,.csv"
+            multiple
+            className="hidden"
+          />
+
           <button
             onClick={() => onTabChange("create")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors"
@@ -148,11 +201,21 @@ export const BulkGenerationView: React.FC<BulkGenerationViewProps> = ({
           </button>
 
           <button
-            onClick={() => onTabChange("import")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold transition-colors"
+            onClick={() => excelInputRef.current?.click()}
+            disabled={isImportingExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold shadow-2xs transition-colors"
+            title="Upload one or multiple Excel files directly"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Import Excel</span>
+            <span>{isImportingExcel ? "Importing Excel..." : "Upload Multiple Excel Files (.xlsx)"}</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange("import")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors"
+          >
+            <Layers className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Excel Importer Tab</span>
           </button>
 
           {batchBills.length > 0 && (
@@ -176,6 +239,13 @@ export const BulkGenerationView: React.FC<BulkGenerationViewProps> = ({
           )}
         </div>
       </div>
+
+      {importSuccessMsg && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <span>{importSuccessMsg}</span>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -261,28 +331,59 @@ export const BulkGenerationView: React.FC<BulkGenerationViewProps> = ({
         </div>
 
         {batchBills.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-              <Files className="w-6 h-6" />
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleProcessExcelFiles(e.dataTransfer.files);
+              }
+            }}
+            className="py-16 text-center space-y-3 cursor-pointer hover:bg-slate-50/50 transition-colors rounded-xl border border-dashed border-slate-200 m-4"
+            onClick={() => excelInputRef.current?.click()}
+          >
+            <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center shadow-xs">
+              <UploadCloud className="w-7 h-7" />
             </div>
-            <div className="text-sm font-bold text-slate-700">
+            <div className="text-sm font-bold text-slate-800">
               Bulk Queue is Currently Empty
             </div>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Add invoices from the Create E-Way Bill form or import an Excel spreadsheet with multiple invoices to build your bulk JSON file.
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Click to select or drag & drop <strong>multiple Excel files</strong> (.xlsx, .xls, .csv). You can select multiple files at once to load all your invoices into this bulk queue.
             </p>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
-                onClick={() => onTabChange("create")}
-                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  excelInputRef.current?.click();
+                }}
+                disabled={isImportingExcel}
+                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors inline-flex items-center gap-2"
               >
-                Create Invoice
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Upload Multiple Excel Files</span>
               </button>
               <button
-                onClick={() => onTabChange("import")}
-                className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTabChange("create");
+                }}
+                className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-colors inline-flex items-center gap-1.5"
               >
-                Import Excel
+                <Plus className="w-4 h-4" />
+                <span>Create Single Invoice</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTabChange("import");
+                }}
+                className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+              >
+                Open Excel Importer Tab
               </button>
             </div>
           </div>

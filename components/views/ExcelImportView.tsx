@@ -53,6 +53,16 @@ interface ExcelImportViewProps {
   ) => void;
 }
 
+interface UploadedFileInfo {
+  id: string;
+  name: string;
+  size: number;
+  billsCount: number;
+  rowCount: number;
+  bills: EWayBillDocument[];
+  rawErrors: { row: number; invoiceNo: string; message: string }[];
+}
+
 export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
   activeCompany,
   transporters = [],
@@ -66,7 +76,9 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [parsedResult, setParsedResult] = useState<ParsedExcelResult | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [loadedFiles, setLoadedFiles] = useState<UploadedFileInfo[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const appendFileInputRef = useRef<HTMLInputElement>(null);
 
   // Quick Part-B Transport State
   const [transporterId, setTransporterId] = useState<string>("");
@@ -82,6 +94,74 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
       setTransporterId(found.transporterId);
       setTransporterName(found.name);
       setTransportApplied(false);
+    }
+  };
+
+  const recomputeFromFiles = (filesList: UploadedFileInfo[]) => {
+    if (filesList.length === 0) {
+      setLoadedFiles([]);
+      setParsedResult(null);
+      setFileName("");
+      setTransportApplied(false);
+      return;
+    }
+
+    const billsMap = new Map<string, EWayBillDocument>();
+    let totalRawRows = 0;
+    const combinedRowErrors: { row: number; invoiceNo: string; message: string }[] = [];
+
+    filesList.forEach((fileInfo) => {
+      totalRawRows += fileInfo.rowCount;
+      fileInfo.rawErrors.forEach((err) => {
+        combinedRowErrors.push({
+          row: err.row,
+          invoiceNo: err.invoiceNo,
+          message: `[${fileInfo.name}] ${err.message}`,
+        });
+      });
+
+      fileInfo.bills.forEach((bill) => {
+        const key = (bill.docNo || "").trim().toUpperCase();
+        if (key && billsMap.has(key)) {
+          const existing = billsMap.get(key)!;
+          existing.itemList = [...(existing.itemList || []), ...(bill.itemList || [])];
+          billsMap.set(key, recalculateBill(existing, true));
+        } else if (key) {
+          billsMap.set(key, recalculateBill({ ...bill }, true));
+        } else {
+          const fallbackKey = `doc_${Math.random()}`;
+          billsMap.set(fallbackKey, recalculateBill({ ...bill }, true));
+        }
+      });
+    });
+
+    const mergedBills = Array.from(billsMap.values());
+    let validCount = 0;
+    let invalidCount = 0;
+
+    mergedBills.forEach((b) => {
+      const errors = validateEWayBill(b);
+      if (errors.some((e) => e.severity === "error")) {
+        invalidCount++;
+      } else {
+        validCount++;
+      }
+    });
+
+    setLoadedFiles(filesList);
+    setParsedResult({
+      bills: mergedBills,
+      totalRows: totalRawRows,
+      totalInvoices: mergedBills.length,
+      validInvoices: validCount,
+      invalidInvoices: invalidCount,
+      rowErrors: combinedRowErrors,
+    });
+
+    if (filesList.length === 1) {
+      setFileName(filesList[0].name);
+    } else {
+      setFileName(`${filesList.length} Excel Files (${mergedBills.length} Invoices)`);
     }
   };
 
@@ -153,29 +233,62 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleProcessFile = (file: File) => {
-    setIsProcessing(true);
-    setFileName(file.name);
+  const handleProcessFiles = async (
+    files: FileList | File[],
+    append: boolean = false
+  ) => {
+    const fileArray = Array.from(files).filter((f) =>
+      /\.(xlsx|xls|csv)$/i.test(f.name)
+    );
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const buffer = e.target?.result as ArrayBuffer;
-        const result = parseExcelFile(buffer, activeCompany);
-        setParsedResult(result);
-      } catch (err: any) {
-        alert(`Failed to parse spreadsheet file: ${err?.message || err}`);
-      } finally {
-        setIsProcessing(false);
+    if (fileArray.length === 0) {
+      alert("Please select valid Excel (.xlsx, .xls) or CSV files.");
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const parsedFiles: UploadedFileInfo[] = [];
+
+      for (const file of fileArray) {
+        const buffer = await file.arrayBuffer();
+        const res = parseExcelFile(buffer, activeCompany);
+        parsedFiles.push({
+          id: `${file.name}_${file.size}_${Date.now()}_${Math.random()}`,
+          name: file.name,
+          size: file.size,
+          billsCount: res.bills.length,
+          rowCount: res.totalRows,
+          bills: res.bills,
+          rawErrors: res.rowErrors,
+        });
       }
-    };
-    reader.readAsArrayBuffer(file);
+
+      const updatedFilesList = append
+        ? [...loadedFiles, ...parsedFiles]
+        : parsedFiles;
+      recomputeFromFiles(updatedFilesList);
+    } catch (err: any) {
+      alert(`Error reading spreadsheet file(s): ${err?.message || err}`);
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (appendFileInputRef.current) appendFileInputRef.current.value = "";
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleProcessFile(files[0]);
+      handleProcessFiles(files, false);
+    }
+  };
+
+  const handleAppendFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleProcessFiles(files, true);
     }
   };
 
@@ -183,8 +296,13 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleProcessFile(e.dataTransfer.files[0]);
+      handleProcessFiles(e.dataTransfer.files, false);
     }
+  };
+
+  const handleRemoveFile = (id: string) => {
+    const remaining = loadedFiles.filter((f) => f.id !== id);
+    recomputeFromFiles(remaining);
   };
 
   const handleAddToBatch = () => {
@@ -239,9 +357,12 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
   };
 
   const handleClear = () => {
+    setLoadedFiles([]);
     setParsedResult(null);
     setFileName("");
+    setTransportApplied(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (appendFileInputRef.current) appendFileInputRef.current.value = "";
   };
 
   return (
@@ -292,6 +413,7 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
             ref={fileInputRef}
             onChange={handleFileChange}
             accept=".xlsx,.xls,.csv"
+            multiple
             className="hidden"
           />
 
@@ -300,13 +422,16 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
           </div>
 
           <h3 className="text-sm font-bold text-slate-800">
-            {isProcessing ? "Processing Spreadsheet..." : "Click to select or drag & drop Excel / CSV file"}
+            {isProcessing ? "Processing Spreadsheets..." : "Click to select or drag & drop multiple Excel / CSV files"}
           </h3>
           <p className="text-xs text-slate-500 max-w-lg mx-auto mt-1">
-            Supports Bulk Invoices (.xlsx, .xls, .csv) and direct Tally Tax Invoice exports. Multi-item invoices are automatically parsed and structured.
+            Select one or multiple spreadsheets (Hold Shift / Ctrl to select multiple files), or drop several files together. Multi-item invoices across all files are automatically parsed, grouped, and validated.
           </p>
 
           <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-500">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[11px] border border-emerald-200">
+              Multiple Files Supported
+            </span>
             <span className="px-2 py-0.5 rounded bg-slate-100 font-mono">.xlsx</span>
             <span className="px-2 py-0.5 rounded bg-slate-100 font-mono">.xls</span>
             <span className="px-2 py-0.5 rounded bg-slate-100 font-mono">.csv</span>
@@ -317,27 +442,82 @@ export const ExcelImportView: React.FC<ExcelImportViewProps> = ({
         <div className="space-y-6">
           {/* Action Bar */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs font-mono">
-                XLS
-              </div>
-              <div>
-                <div className="text-sm font-bold text-slate-800 font-mono">
-                  {fileName}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs font-mono flex-shrink-0">
+                  XLS
                 </div>
-                <div className="text-xs text-slate-500">
-                  {parsedResult.totalRows} row(s) processed into {parsedResult.totalInvoices} grouped invoice(s)
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-slate-800 font-mono truncate">
+                    {fileName}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {parsedResult.totalRows} raw row(s) • {parsedResult.totalInvoices} grouped invoice(s) across {loadedFiles.length} file(s)
+                  </div>
                 </div>
               </div>
+
+              {/* Uploaded File Chips */}
+              {loadedFiles.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                  {loadedFiles.map((f) => (
+                    <span
+                      key={f.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-800 shadow-2xs"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <span className="font-semibold max-w-[160px] truncate" title={f.name}>
+                        {f.name}
+                      </span>
+                      <span className="text-emerald-600 font-sans font-medium text-[11px]">
+                        ({f.billsCount} bills)
+                      </span>
+                      {loadedFiles.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveFile(f.id);
+                          }}
+                          className="hover:text-rose-600 hover:bg-emerald-100 rounded p-0.5 ml-0.5 text-slate-400 transition-colors"
+                          title={`Remove ${f.name}`}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              <input
+                type="file"
+                ref={appendFileInputRef}
+                onChange={handleAppendFileChange}
+                accept=".xlsx,.xls,.csv"
+                multiple
+                className="hidden"
+              />
+
+              <button
+                type="button"
+                onClick={() => appendFileInputRef.current?.click()}
+                disabled={isProcessing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold shadow-2xs transition-colors"
+                title="Add more Excel files to this batch"
+              >
+                <Plus className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Add More Excel Files</span>
+              </button>
+
               <button
                 onClick={handleClear}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5 text-slate-400" />
-                <span>Upload Another</span>
+                <span>Clear All</span>
               </button>
 
               <button
