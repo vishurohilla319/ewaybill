@@ -89,6 +89,11 @@ export const InstructionsView: React.FC<InstructionsViewProps> = ({
       title: "Vehicle number format is invalid",
       solution: "Format must follow standard Indian transport authority registration (e.g. DL01AB1234 without dashes or spaces).",
     },
+    {
+      code: "TOOL-VER",
+      title: "Please download the latest version of excel tool converter..!!",
+      solution: "This occurs if you upload an Excel sheet (.xlsx) instead of the generated .json file, OR if using an outdated schema version. Fin Tax has updated your default schema to version '1.0.0621'. Always upload the downloaded .json file to E-Waybill ➔ Generate Bulk.",
+    },
   ];
 
   return (

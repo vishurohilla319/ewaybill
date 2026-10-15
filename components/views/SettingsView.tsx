@@ -85,19 +85,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 {
+                  version: "1.0.0621",
+                  label: "1.0.0621 (Official Portal Standard - Recommended)",
+                  desc: "Current mandatory standard required by official ewaybillgst.gov.in portal",
+                },
+                {
                   version: "1.0.1118",
-                  label: "1.0.1118 (Official Bulk NIC Standard)",
-                  desc: "Current standard used by official ewaybillgst.gov.in bulk offline tool",
+                  label: "1.0.1118 (Legacy NIC Tool Version)",
+                  desc: "Previous bulk tool format (may trigger 'download latest version' alert on portal)",
                 },
                 {
                   version: "1.0.0421",
                   label: "1.0.0421 (API & Offline Tool Legacy)",
                   desc: "Compatible with previous bulk offline tool release",
-                },
-                {
-                  version: "1.0.0123",
-                  label: "1.0.0123 (Updated Bulk Variant)",
-                  desc: "Experimental variant for latest portal releases",
                 },
               ].map((v) => (
                 <label

@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         ${record.invoiceNumbers || []}, 
         ${Number(record.totalValue)}, 
         ${Number(record.totalTax)}, 
-        ${record.schemaVersion || "1.0.1118"}, 
+        ${record.schemaVersion || "1.0.0621"}, 
         ${record.jsonPayload}, 
         CURRENT_TIMESTAMP
       )

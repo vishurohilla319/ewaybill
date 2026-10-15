@@ -12,7 +12,7 @@ export const DEFAULT_TRANSPORTERS: TransporterMaster[] = [];
 export const DEFAULT_ITEMS: ItemMaster[] = [];
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  schemaVersion: "1.0.1118",
+  schemaVersion: "1.0.0621",
   defaultSupplyType: "O",
   defaultSubSupplyType: 1,
   defaultDocType: "INV",
@@ -278,7 +278,29 @@ export const StorageService = {
 
   getSettings: (userId?: string): AppSettings => {
     const key = getUserStorageKey("settings", userId);
-    return safeGet<AppSettings>(key, DEFAULT_SETTINGS);
+    let stored = safeGet<AppSettings | null>(key, null);
+
+    if (!stored && key !== "fintax_ewb_settings") {
+      stored = safeGet<AppSettings | null>("fintax_ewb_settings", null);
+    }
+
+    const resolved: AppSettings = { ...DEFAULT_SETTINGS, ...(stored || {}) };
+
+    if (!resolved.schemaVersion || resolved.schemaVersion === "1.0.1118") {
+      resolved.schemaVersion = "1.0.0621";
+      safeSet(key, resolved);
+      if (typeof window !== "undefined" && key !== "fintax_ewb_settings") {
+        try {
+          const globalStored = safeGet<AppSettings | null>("fintax_ewb_settings", null);
+          if (globalStored && globalStored.schemaVersion === "1.0.1118") {
+            globalStored.schemaVersion = "1.0.0621";
+            safeSet("fintax_ewb_settings", globalStored);
+          }
+        } catch {}
+      }
+    }
+
+    return resolved;
   },
 
   saveSettings: (settings: AppSettings, userId?: string): void => {

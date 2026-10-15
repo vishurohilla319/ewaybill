@@ -54,6 +54,7 @@ interface CreateBillViewProps {
   activeCompany?: CompanyProfile;
   transporters: TransporterMaster[];
   itemsMaster: ItemMaster[];
+  schemaVersion?: string;
   onSaveDraft: (draft: DraftBill) => void;
   onAddToBulkBatch: (bill: EWayBillDocument) => void;
   onExportSuccess: (filename: string, jsonPayload: string, bill: EWayBillDocument) => void;
@@ -73,6 +74,7 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
   activeCompany,
   transporters,
   itemsMaster,
+  schemaVersion,
   onSaveDraft,
   onAddToBulkBatch,
   onExportSuccess,
@@ -354,7 +356,7 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
 
   const handlePreviewAction = () => {
     const recalculated = recalculateBill(bill, true);
-    const payload = generateBulkEWayBillJson([recalculated]);
+    const payload = generateBulkEWayBillJson([recalculated], schemaVersion);
     const jsonStr = formatJsonPayload(payload);
     const filename = generateExportFilename(`EWB_${bill.docNo.replace(/[^A-Za-z0-9]/g, "")}`);
     const errs = validateEWayBill(recalculated);
@@ -372,7 +374,7 @@ export const CreateBillView: React.FC<CreateBillViewProps> = ({
       return;
     }
 
-    const payload = generateBulkEWayBillJson([recalculated]);
+    const payload = generateBulkEWayBillJson([recalculated], schemaVersion);
     const jsonStr = formatJsonPayload(payload);
     const filename = generateExportFilename(`EWB_${bill.docNo.replace(/[^A-Za-z0-9]/g, "")}`);
 

@@ -56,8 +56,8 @@ export const PortalUploadGuideModal: React.FC<PortalUploadGuideModalProps> = ({
     },
     {
       num: 5,
-      title: "Upload the Generated JSON File",
-      desc: "Click 'Choose File', select the downloaded .json file from your computer, and click 'Upload & Generate'.",
+      title: "Upload the Generated JSON File (.json, NOT .xlsx)",
+      desc: "Click 'Choose File', select the downloaded .json file from your computer (e.g. EWB_...json), and click 'Upload & Generate'. Do NOT upload an Excel spreadsheet here, as the portal will display 'Please download the latest version of excel tool converter'.",
       icon: FileJson,
     },
     {

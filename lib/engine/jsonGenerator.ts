@@ -101,14 +101,14 @@ export function sanitizeDocumentForOfficialJson(
  */
 export function generateBulkEWayBillJson(
   documents: EWayBillDocument[],
-  version: string = "1.0.1118"
+  version: string = "1.0.0621"
 ): EWayBillBulkPayload {
   const sanitizedList = documents.map((doc) =>
     sanitizeDocumentForOfficialJson(doc)
   ) as EWayBillDocument[];
 
   return {
-    version: version || "1.0.1118",
+    version: version || "1.0.0621",
     billLists: sanitizedList,
   };
 }

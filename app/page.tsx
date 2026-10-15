@@ -425,6 +425,7 @@ export default function Home() {
               activeCompany={activeCompany}
               transporters={transporters}
               itemsMaster={items}
+              schemaVersion={settings.schemaVersion}
               onSaveDraft={handleSaveDraft}
               onAddToBulkBatch={handleAddToBatch}
               onExportSuccess={(filename, json, bill) =>

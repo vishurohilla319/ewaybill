@@ -138,7 +138,7 @@ export interface ExportHistoryRecord {
 }
 
 export interface AppSettings {
-  schemaVersion: "1.0.1118" | "1.0.0421" | "1.0.0123";
+  schemaVersion: "1.0.0621" | "1.0.1118" | "1.0.0421" | "1.0.0123" | string;
   defaultSupplyType: "O" | "I";
   defaultSubSupplyType: number;
   defaultDocType: "INV" | "BIL" | "BOE" | "CHL" | "OTH";
